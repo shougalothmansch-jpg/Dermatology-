@@ -54,7 +54,7 @@ export default function AnkiImport({ onClose }: { onClose: () => void }) {
         {!running && !result && (
           <>
             <ol className="list-decimal space-y-1 pl-5">
-              <li>In Anki (AnkiMobile on iPhone: open the deck list → long-press the deck → <b>Export</b>; desktop: <b>File → Export</b>), choose <b>Anki Deck Package (.apkg)</b> and include media.</li>
+              <li>In Anki, use <b>Export</b> (desktop: <b>File → Export</b>; AnkiMobile: the deck's export/share option), choose <b>Anki Deck Package (.apkg)</b> and make sure media is included.</li>
               <li>Save it to <b>Files</b>, then pick it below.</li>
             </ol>
             <p className="muted text-xs">
