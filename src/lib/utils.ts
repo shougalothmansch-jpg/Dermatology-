@@ -60,8 +60,11 @@ export function htmlToText(html: string): string {
   return div.innerText || div.textContent || '';
 }
 
-export function downloadFile(filename: string, content: string, mime = 'application/json') {
-  const blob = new Blob([content], { type: mime });
+function isIOS(): boolean {
+  return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes('Macintosh') && navigator.maxTouchPoints > 1);
+}
+
+function triggerDownload(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -70,6 +73,29 @@ export function downloadFile(filename: string, content: string, mime = 'applicat
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * Saves a file. On iPhone/iPad this opens the share sheet (so you can pick
+ * "Save to Files", AirDrop, Mail…); elsewhere, or if sharing isn't possible,
+ * it downloads normally.
+ */
+export async function downloadFile(filename: string, content: string, mime = 'application/json') {
+  const blob = new Blob([content], { type: mime });
+  if (isIOS() && typeof navigator.share === 'function' && typeof File !== 'undefined') {
+    // iOS shares text/plain more reliably than other text types
+    const file = new File([blob], filename, { type: mime.startsWith('text/') ? mime : 'text/plain' });
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: filename });
+        return;
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return; // user closed the sheet
+        // NotAllowedError etc. → fall through to a normal download
+      }
+    }
+  }
+  triggerDownload(filename, blob);
 }
 
 export async function copyText(text: string): Promise<boolean> {

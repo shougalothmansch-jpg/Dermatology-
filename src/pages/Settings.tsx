@@ -25,8 +25,8 @@ export default function Settings() {
 
   const doExport = async () => {
     const backup = await exportAll();
-    downloadFile(`derm-path-backup-${todayStr()}.json`, JSON.stringify(backup, null, 2));
-    toast('Backup downloaded');
+    await downloadFile(`derm-path-backup-${todayStr()}.json`, JSON.stringify(backup, null, 2));
+    toast('Backup ready');
   };
 
   const onFile = async (f: File | undefined) => {
@@ -68,7 +68,7 @@ export default function Settings() {
         <div className="flex flex-wrap gap-2">
           <button className="btn-primary" onClick={doExport}>Export all data (.json)</button>
           <button className="btn-secondary" onClick={() => fileRef.current?.click()}>Import backup…</button>
-          <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+          <input ref={fileRef} type="file" accept="application/json,text/plain,.json" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
         </div>
         {importError && <p className="mt-3 text-sm text-rose-600">{importError}</p>}
         <div className="mt-6 border-t border-slate-200 pt-4 dark:border-slate-800">
