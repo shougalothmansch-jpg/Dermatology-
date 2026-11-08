@@ -23,7 +23,24 @@ Other scripts:
 | `npm run preview` | Serve the production build locally |
 | `npm run typecheck` | Run the TypeScript checker only |
 
-The production build in `dist/` is plain static files, so you can host it on any static host. For client-side routes to work, the host has to fall back to `index.html`.
+The production build in `dist/` is plain static files that you can host anywhere. It uses hash-based URLs (`#/study`), so it needs no server configuration. To host it under a sub-path, set `BASE_PATH` when you build, e.g. `BASE_PATH=/my-path/ npm run build`.
+
+## Use it on iPhone
+
+The app is published to GitHub Pages at **https://shougalothmansch-jpg.github.io/Dermatology-/**. Every push to `main` redeploys it automatically through `.github/workflows/deploy.yml`.
+
+To install it:
+1. Open the link in **Safari**.
+2. Tap **Share**, then **Add to Home Screen**.
+3. Always open Derm Path from the Home Screen icon. It runs full-screen and works offline after the first load.
+
+Good to know on iPhone:
+- **The Home Screen app and a Safari tab keep separate data.** Pick one, ideally the Home Screen icon, and stick with it.
+- **Exports open the share sheet.** "Export all data" and "Export .md" let you choose **Save to Files**, AirDrop or Mail.
+- **Import reads from Files.** "Import backup…" opens the Files picker, so you can restore a backup you saved there.
+- **PDFs come from the print view.** Use Share/Print → **Save to Files** (pinch out on the print preview if needed).
+
+One-time setup (already done if the link works): in the GitHub repo, open **Settings → Pages** and set **Source** to **GitHub Actions**.
 
 ## Back up your data
 

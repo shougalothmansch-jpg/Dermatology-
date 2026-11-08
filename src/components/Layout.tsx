@@ -3,6 +3,8 @@ import { useTheme } from '../lib/settings';
 import { cx } from '../lib/utils';
 import { ToastHost } from './Toast';
 
+const LOGO = `${import.meta.env.BASE_URL}favicon.svg`;
+
 const NAV = [
   { to: '/', label: 'Dashboard', icon: '◎', end: true },
   { to: '/study', label: 'Study', icon: '✎' },
@@ -18,7 +20,7 @@ export default function Layout() {
       {/* Sidebar (desktop) */}
       <aside className="no-print sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-slate-200 bg-white px-3 py-5 dark:border-slate-800 dark:bg-slate-900 md:flex">
         <div className="mb-6 flex items-center gap-2 px-2">
-          <img src="/favicon.svg" alt="" className="h-8 w-8" />
+          <img src={LOGO} alt="" className="h-8 w-8" />
           <div>
             <div className="font-semibold text-slate-900 dark:text-white">Derm Path</div>
             <div className="text-xs text-slate-500">Dermatology training</div>
@@ -50,9 +52,9 @@ export default function Layout() {
       </aside>
 
       {/* Top bar (mobile) */}
-      <header className="no-print sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90 md:hidden">
+      <header className="no-print sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90 md:hidden">
         <div className="flex items-center gap-2">
-          <img src="/favicon.svg" alt="" className="h-7 w-7" />
+          <img src={LOGO} alt="" className="h-7 w-7" />
           <span className="font-semibold text-slate-900 dark:text-white">Derm Path</span>
         </div>
         <button className="btn-ghost btn-sm" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label="Toggle theme">

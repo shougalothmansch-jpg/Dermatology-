@@ -110,7 +110,7 @@ export default function ProtocolEditor() {
           >
             Export .md
           </button>
-          <Link to={`/research/${draft.id}/print`} target="_blank" className="btn-secondary" onClick={() => persist()}>
+          <Link to={`/research/${draft.id}/print`} className="btn-secondary" onClick={() => persist()}>
             Print / PDF
           </Link>
         </div>
