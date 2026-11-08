@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, TABLE_NAMES } from '../db/db';
+import { db, getMeta, setMeta, TABLE_NAMES } from '../db/db';
+import { DEFAULT_NEW_PER_DAY } from '../lib/queue';
+import { formatBytes } from './study/BookFiles';
 import { exportAll, importAll, resetAll, validateBackup, type BackupFile } from '../db/backup';
 import { Card, ConfirmDialog, Field, PageHeader } from '../components/ui';
 import { toast } from '../components/Toast';
@@ -17,6 +19,13 @@ export default function Settings() {
   const [confirmReset, setConfirmReset] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const newPerDay = useLiveQuery(() => getMeta<number>('newPerDay', DEFAULT_NEW_PER_DAY), []);
+  const storage = useLiveQuery(async () => {
+    const est = await navigator.storage?.estimate?.();
+    const persisted = await navigator.storage?.persisted?.();
+    const [pdfs, images] = await Promise.all([db.bookFiles.count(), db.media.count()]);
+    return { usage: est?.usage ?? 0, quota: est?.quota ?? 0, persisted: !!persisted, pdfs, images };
+  }, []);
   const counts = useLiveQuery(async () => {
     const out: Record<string, number> = {};
     for (const t of TABLE_NAMES) out[t] = await db.table(t).count();
@@ -56,6 +65,19 @@ export default function Settings() {
         </div>
       </Card>
 
+      <Card title="Study">
+        <Field label="New cards per day" hint="How many never-studied questions and Anki cards join the “Due today” queue each day (like Anki's daily new-card limit).">
+          <input
+            type="number"
+            min={0}
+            max={9999}
+            className="input w-32"
+            value={newPerDay ?? ''}
+            onChange={(e) => void setMeta('newPerDay', Math.max(0, Number(e.target.value) || 0))}
+          />
+        </Field>
+      </Card>
+
       <Card title="Backup & restore">
         <p className="muted mb-4 text-sm">
           All data lives only in this browser (IndexedDB). Export a backup regularly — clearing site data or switching browsers/devices will not carry it over.
@@ -64,6 +86,16 @@ export default function Settings() {
           <div className="muted mb-4 text-xs">
             {counts.topics} topics · {counts.questions} questions · {counts.attempts} quiz answers · {counts.essays} essays · {counts.clubEntries} club entries · {counts.protocols} protocols
           </div>
+        )}
+        <p className="muted mb-4 text-xs">
+          Backups include all your cards, questions, progress and source quotes, but <b>not</b> textbook PDFs or Anki images (too large). After restoring on a new device, add the PDFs again and re-import your Anki deck — your progress is kept.
+        </p>
+        {storage && (
+          <p className="muted mb-4 text-xs">
+            Storage used: {formatBytes(storage.usage)}
+            {storage.quota ? ` of ${formatBytes(storage.quota)} available` : ''} · {storage.pdfs} PDFs · {storage.images} images ·{' '}
+            {storage.persisted ? 'protected from automatic clearing' : 'may be cleared by the browser if space runs low — add the app to your Home Screen'}
+          </p>
         )}
         <div className="flex flex-wrap gap-2">
           <button className="btn-primary" onClick={doExport}>Export all data (.json)</button>
@@ -155,7 +187,7 @@ export default function Settings() {
         open={confirmReset}
         title="Reset all data?"
         confirmLabel="Erase everything"
-        message="This permanently erases every topic, question, essay, club entry and protocol, then restores the default syllabus. Export a backup first if you might need it."
+        message="This permanently erases every topic, question, Anki card and image, textbook PDF, essay, club entry and protocol, then restores the default syllabus. Export a backup first if you might need it."
         onClose={() => setConfirmReset(false)}
         onConfirm={async () => {
           await resetAll();

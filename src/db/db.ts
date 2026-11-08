@@ -1,9 +1,12 @@
 import Dexie, { type Table } from 'dexie';
 import type {
+  AnkiNotetype,
   Attempt,
+  BookFile,
   ClubEntry,
   Essay,
   EssayPrompt,
+  MediaFile,
   MetaRow,
   Protocol,
   ProtocolTask,
@@ -33,6 +36,9 @@ export class DermPathDB extends Dexie {
   protocols!: Table<Protocol, string>;
   protocolTasks!: Table<ProtocolTask, string>;
   meta!: Table<MetaRow, string>;
+  bookFiles!: Table<BookFile, string>;
+  ankiNotetypes!: Table<AnkiNotetype, string>;
+  media!: Table<MediaFile, string>;
 
   constructor() {
     super('derm-path');
@@ -48,6 +54,12 @@ export class DermPathDB extends Dexie {
       protocols: 'id, updatedAt',
       protocolTasks: 'id, protocolId, due',
       meta: 'key',
+    });
+    this.version(2).stores({
+      questions: 'id, topicId, textbookId, srs.due, createdAt, attempts, firstStudied, anki.cardId, [attempts+createdAt]',
+      bookFiles: 'id, textbookId',
+      ankiNotetypes: 'id',
+      media: 'name',
     });
     this.on('populate', (tx) => {
       const seed = buildSeed();
@@ -74,7 +86,12 @@ export const TABLE_NAMES = [
   'protocols',
   'protocolTasks',
   'meta',
+  'ankiNotetypes',
 ] as const;
+
+/** Large binary tables kept out of the JSON backup (PDFs and deck images). */
+export const BINARY_TABLES = ['bookFiles', 'media'] as const;
+export const ALL_TABLES = [...TABLE_NAMES, ...BINARY_TABLES] as const;
 export type TableName = (typeof TABLE_NAMES)[number];
 
 export function buildSeed() {

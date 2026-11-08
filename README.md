@@ -53,6 +53,8 @@ Your data lives only in the browser profile you use. Clearing site data, using a
 
 The optional Anthropic API key is **not** included in backups. It stays in this browser's `localStorage` only.
 
+Textbook PDFs and Anki images are also left out of backups because they're too large. After restoring on a new device, add your PDFs again and re-import your Anki deck. Re-importing matches cards by their Anki ID, so your progress is kept.
+
 ## What's inside
 
 ### Dashboard
@@ -75,9 +77,24 @@ The optional Anthropic API key is **not** included in backups. It stays in this 
 - **Spaced repetition:** uses a simple SM-2 schedule. A missed question, or one rated "Again", comes back tomorrow. "Hard", "Good" and "Easy" each set a different interval.
 - **Progress:** accuracy per topic, all-time and for the last 4 weeks, with an 8-week trend line.
 - **Essays:** pick a topic and a prompt. Prompts come from generic templates that use a `{topic}` placeholder, or from your own topic-specific ones. You can set an optional countdown timer. The rich-text editor shows a live word count and autosaves as you write. When you finish, you score yourself 0–5 on a rubric: structure, pathogenesis, clinical features, differentials, investigations, management and references. Every essay is saved with its date and score.
-- **Generate questions (optional):** turn it on in Settings and paste your Anthropic API key. The app then calls the Claude API (`claude-opus-5-5`) directly from your browser to draft MCQs for a topic. Nothing is saved until you have reviewed and edited the drafts.
+- **Textbook PDFs:** add your own PDFs (whole books or chapters) under **Study → Textbooks**. They're stored only on your device and never uploaded to GitHub.
+  - **Read in the app:** open a PDF to read it page by page, or in **Text** view.
+  - **Make questions from a passage:** in **Text** view, select a passage and tap **Make question**. The question is saved with the exact quote and page number, and an **Open page** link takes you back to that page.
+  - **Book page numbers:** if a PDF is a chapter, enter the printed page number of its first page so citations show real book pages.
+  - **Scanned PDFs** (no text layer) can be read but not quoted.
+- **Anki import:** **Question bank → Import Anki deck** takes an `.apkg` file exported from Anki, in either the old or new format.
+  - **Cards keep their look:** images and deck styling come across, and basic, reversed and cloze cards are all supported.
+  - **Subdecks become topics:** each subdeck is matched to a syllabus topic with the same name, or gets a new topic under an "Anki: …" section.
+  - **Fresh scheduling:** cards start fresh in Derm Path's spaced repetition.
+  - **Daily new-card limit:** **Settings → New cards per day** (default 20) controls how many unseen cards join each day's "Due today" queue, like Anki.
+  - **Safe to re-import:** importing the same deck again updates cards without duplicating them or losing your progress.
+- **Generate questions (optional):** turn it on in Settings and paste your Anthropic API key. The app then calls the Claude API (`claude-opus-5-5`) directly from your browser to draft MCQs. It works in two modes:
+  - **From your textbook pages:** pick a PDF and a page range (up to 40 pages). Each question must cite a page and an exact quote, and the app checks that the quote really appears in the PDF. Drafts whose quote can't be found are flagged and left unticked.
+  - **From general knowledge** of a topic.
 
-Derm Path contains **no copyrighted textbook text**. It stores only topic names, chapter numbers, and the notes, questions and essays you write yourself.
+  Nothing is saved until you have reviewed and edited the drafts. In textbook mode, the text of the chosen pages is sent to the Anthropic API with your key.
+
+The app's code contains **no textbook text**. Any PDFs you add stay in your browser's storage on your device. They are never part of this repository, which is public.
 
 ### Interest Group
 - Log each activity with:
@@ -108,9 +125,10 @@ Derm Path contains **no copyrighted textbook text**. It stores only topic names,
 ```
 src/
   db/          types.ts (data models), db.ts (Dexie schema), seed.ts (seed syllabus & lists), backup.ts
-  lib/         sm2.ts, prospero.ts (template + markdown), protocols.ts, anthropic.ts, settings.ts, utils.ts
+  lib/         sm2.ts, queue.ts (daily review queue), prospero.ts, protocols.ts, anthropic.ts, pdf.ts (pdf.js reader),
+               anki/ (apkg importer, template/cloze renderer), settings.ts, utils.ts
   components/  Layout, UI kit (ui.tsx), RichTextEditor, Toast
   pages/       Dashboard, Settings, study/*, club/*, research/*
 ```
 
-Stack: React 18, Vite, TypeScript, Tailwind CSS, Dexie (IndexedDB), React Router.
+Stack: React 18, Vite, TypeScript, Tailwind CSS, Dexie (IndexedDB), React Router. Libraries are loaded only when needed: pdf.js (PDFs), sql.js + fflate + fzstd (Anki import), and the Anthropic SDK.

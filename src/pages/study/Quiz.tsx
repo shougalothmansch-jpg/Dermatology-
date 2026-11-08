@@ -3,6 +3,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import type { Question } from '../../db/types';
 import { Card, Field, ProgressBar } from '../../components/ui';
+import AnkiCardView from '../../components/AnkiCardView';
+import SourceQuote from '../../components/SourceQuote';
+import { dueQueue } from '../../lib/queue';
 import { QUALITY_BUTTONS, reviewSrs } from '../../lib/sm2';
 import { cx, nowIso, pct, shuffle, todayStr, uid } from '../../lib/utils';
 import { TopicSelect, type StudyData } from './useStudyData';
@@ -10,7 +13,7 @@ import { TopicSelect, type StudyData } from './useStudyData';
 export type QuizMode = 'due' | 'topic' | 'textbook' | 'mixed' | 'weak';
 
 const MODES: { id: QuizMode; label: string; desc: string }[] = [
-  { id: 'due', label: 'Due for review', desc: 'Spaced-repetition queue: questions scheduled for today or earlier.' },
+  { id: 'due', label: 'Due today', desc: 'Spaced repetition: reviews that are due, plus today’s new cards (limit set in Settings).' },
   { id: 'topic', label: 'By topic', desc: 'All questions for one topic.' },
   { id: 'textbook', label: 'By textbook', desc: 'Questions tagged to a textbook (optionally one chapter).' },
   { id: 'mixed', label: 'Mixed random', desc: 'A random mix across your whole bank.' },
@@ -56,6 +59,7 @@ export function buildWeakQueue(questions: Question[], data: StudyData): Question
 
 export default function Quiz({ data, initialMode = 'due' }: { data: StudyData; initialMode?: QuizMode }) {
   const questions = useLiveQuery(() => db.questions.toArray(), []);
+  const due = useLiveQuery(() => dueQueue(), []);
   const [mode, setMode] = useState<QuizMode>(initialMode);
   const [topicId, setTopicId] = useState('');
   const [textbookId, setTextbookId] = useState('');
@@ -63,12 +67,11 @@ export default function Quiz({ data, initialMode = 'due' }: { data: StudyData; i
   const [count, setCount] = useState(20);
   const [session, setSession] = useState<Question[] | null>(null);
 
-  const today = todayStr();
   const pool = useMemo(() => {
     const qs = questions ?? [];
     switch (mode) {
       case 'due':
-        return qs.filter((q) => q.srs.due <= today).sort((a, b) => a.srs.due.localeCompare(b.srs.due));
+        return due ? [...due.reviews, ...due.fresh] : [];
       case 'topic':
         return topicId ? shuffle(qs.filter((q) => q.topicId === topicId)) : [];
       case 'textbook':
@@ -80,7 +83,7 @@ export default function Quiz({ data, initialMode = 'due' }: { data: StudyData; i
       case 'weak':
         return buildWeakQueue(qs, data);
     }
-  }, [questions, mode, topicId, textbookId, chapter, today, data]);
+  }, [questions, due, mode, topicId, textbookId, chapter, data]);
 
   if (!questions) return null;
 
@@ -139,8 +142,10 @@ export default function Quiz({ data, initialMode = 'due' }: { data: StudyData; i
       <Card title="Queue">
         <div className="space-y-2 text-sm">
           <div className="flex justify-between"><span className="muted">Total questions</span><b>{questions.length}</b></div>
-          <div className="flex justify-between"><span className="muted">Due today</span><b>{questions.filter((q) => q.srs.due <= today).length}</b></div>
-          <div className="flex justify-between"><span className="muted">Never attempted</span><b>{questions.filter((q) => !q.attempts).length}</b></div>
+          <div className="flex justify-between"><span className="muted">Reviews due</span><b>{due?.reviews.length ?? '…'}</b></div>
+          <div className="flex justify-between"><span className="muted">New cards today</span><b>{due?.fresh.length ?? '…'}</b></div>
+          <div className="flex justify-between"><span className="muted">Never studied (total)</span><b>{questions.filter((q) => !q.attempts).length}</b></div>
+          <div className="flex justify-between"><span className="muted">Anki cards</span><b>{questions.filter((q) => q.type === 'anki').length}</b></div>
           <div className="flex justify-between"><span className="muted">Missed at least once</span><b>{questions.filter((q) => q.srs.lapses > 0).length}</b></div>
         </div>
         <p className="muted mt-4 text-xs">
@@ -169,6 +174,7 @@ function QuizSession({ data, questions, onExit }: { data: StudyData; questions: 
           srs: reviewSrs(fresh.srs, quality),
           attempts: fresh.attempts + 1,
           correct: fresh.correct + (correct ? 1 : 0),
+          firstStudied: fresh.firstStudied ?? todayStr(),
         });
         await db.attempts.add({ id: uid(), questionId: q.id, topicId: q.topicId, correct, quality, date: nowIso() });
       });
@@ -202,6 +208,7 @@ function QuizSession({ data, questions, onExit }: { data: StudyData; questions: 
 
   const topic = data.topicById.get(q.topicId);
   const isMcq = q.type === 'mcq';
+  const isAnki = q.type === 'anki' && !!q.anki;
   const mcqCorrect = selected === q.correctIndex;
 
   return (
@@ -212,10 +219,27 @@ function QuizSession({ data, questions, onExit }: { data: StudyData; questions: 
         <span className="muted text-sm">{idx + 1}/{questions.length}</span>
       </div>
       <Card>
-        <div className="muted mb-2 text-xs">{topic?.name}{q.chapter && ` · ch. ${q.chapter}`}</div>
-        <p className="mb-5 whitespace-pre-wrap text-base leading-relaxed text-slate-900 dark:text-slate-100">{q.stem}</p>
+        <div className="muted mb-2 text-xs">
+          {topic?.name}
+          {q.chapter && ` · ch. ${q.chapter}`}
+          {q.anki && ` · ${q.anki.deck.split('::').pop()}`}
+          {!q.attempts && <span className="ml-1.5 rounded bg-sky-100 px-1.5 text-sky-700 dark:bg-sky-950 dark:text-sky-300">new</span>}
+        </div>
+        {isAnki ? (
+          <div className="mb-5"><AnkiCardView html={q.anki!.front} notetypeId={q.anki!.notetypeId} /></div>
+        ) : (
+          <p className="mb-5 whitespace-pre-wrap text-base leading-relaxed text-slate-900 dark:text-slate-100">{q.stem}</p>
+        )}
 
-        {isMcq ? (
+        {isAnki ? (
+          <div>
+            {!revealed ? (
+              <button className="btn-primary w-full sm:w-auto" onClick={() => setRevealed(true)}>Show answer</button>
+            ) : (
+              <div className="border-t border-slate-200 pt-4 dark:border-slate-700"><AnkiCardView html={q.anki!.back} notetypeId={q.anki!.notetypeId} /></div>
+            )}
+          </div>
+        ) : isMcq ? (
           <div className="space-y-2">
             {q.options.map((o, i) => {
               const state = !revealed ? (selected === i ? 'sel' : '') : i === q.correctIndex ? 'right' : selected === i ? 'wrong' : 'dim';
@@ -258,9 +282,10 @@ function QuizSession({ data, questions, onExit }: { data: StudyData; questions: 
 
         {revealed && (
           <>
+            {q.source && <div className="mt-4"><SourceQuote source={q.source} /></div>}
             {q.explanation && (
               <div className="mt-4 rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800">
-                <div className="label">Explanation</div>
+                <div className="label">{isAnki ? 'My notes' : 'Explanation'}</div>
                 <p className="whitespace-pre-wrap">{q.explanation}</p>
               </div>
             )}

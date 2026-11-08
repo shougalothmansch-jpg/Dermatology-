@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { db } from '../../db/db';
 import type { Question, QuestionType } from '../../db/types';
 import { Field, Modal } from '../../components/ui';
+import AnkiCardView from '../../components/AnkiCardView';
+import SourceQuote from '../../components/SourceQuote';
 import { toast } from '../../components/Toast';
 import { newSrs } from '../../lib/sm2';
 import { cx, nowIso, uid } from '../../lib/utils';
@@ -27,6 +29,7 @@ export function blankQuestion(topicId = ''): Question {
 
 export function validateQuestion(q: Question): string | null {
   if (!q.topicId) return 'Choose a topic.';
+  if (q.type === 'anki') return null;
   if (!q.stem.trim()) return 'Write the question stem.';
   if (q.type === 'mcq') {
     const filled = q.options.filter((o) => o.trim());
@@ -38,6 +41,7 @@ export function validateQuestion(q: Question): string | null {
 
 /** Strip blank options while keeping the correct index aligned. */
 export function normalizeQuestion(q: Question): Question {
+  if (q.type === 'anki') return q;
   if (q.type !== 'mcq') return { ...q, options: [], correctIndex: 0 };
   const correctText = q.options[q.correctIndex];
   const options = q.options.map((o) => o.trim()).filter(Boolean);
@@ -47,15 +51,23 @@ export function normalizeQuestion(q: Question): Question {
 export function QuestionFields({ data, q, onChange }: { data: StudyData; q: Question; onChange: (q: Question) => void }) {
   const set = <K extends keyof Question>(k: K, v: Question[K]) => onChange({ ...q, [k]: v });
   const topic = data.topicById.get(q.topicId);
+  const isAnki = q.type === 'anki';
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
+      {isAnki ? (
+        <div className="space-y-3 sm:col-span-2">
+          <div className="muted text-xs">Anki card · {q.anki?.deck} — edit the card text in Anki and re-import; here you can change its topic, textbook link and notes.</div>
+          <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700"><AnkiCardView html={q.anki?.front ?? ''} notetypeId={q.anki?.notetypeId} /></div>
+        </div>
+      ) : (
       <Field label="Type">
         <select className="input" value={q.type} onChange={(e) => set('type', e.target.value as QuestionType)}>
           <option value="mcq">Multiple choice (MCQ)</option>
           <option value="short">Short answer</option>
         </select>
       </Field>
+      )}
       <Field label="Topic">
         <TopicSelect data={data} value={q.topicId} onChange={(id) => set('topicId', id)} />
       </Field>
@@ -75,6 +87,13 @@ export function QuestionFields({ data, q, onChange }: { data: StudyData; q: Ques
       <Field label="Chapter (optional)">
         <input className="input" value={q.chapter ?? ''} onChange={(e) => set('chapter', e.target.value)} placeholder="e.g. 8" />
       </Field>
+      {q.source && (
+        <div className="sm:col-span-2">
+          <span className="label">Source passage</span>
+          <SourceQuote source={q.source} onRemove={() => set('source', undefined)} />
+        </div>
+      )}
+      {!isAnki && (<>
       <Field label="Question stem" className="sm:col-span-2">
         <textarea className="input min-h-[100px]" value={q.stem} onChange={(e) => set('stem', e.target.value)} placeholder="Clinical vignette or question…" />
       </Field>
@@ -125,16 +144,30 @@ export function QuestionFields({ data, q, onChange }: { data: StudyData; q: Ques
           <textarea className="input min-h-[90px]" value={q.answer} onChange={(e) => set('answer', e.target.value)} />
         </Field>
       )}
-      <Field label="Explanation" className="sm:col-span-2">
+      </>)}
+      <Field label={isAnki ? 'My notes' : 'Explanation'} className="sm:col-span-2">
         <textarea className="input min-h-[90px]" value={q.explanation} onChange={(e) => set('explanation', e.target.value)} placeholder="Why the answer is correct, key distractors, a learning point…" />
       </Field>
     </div>
   );
 }
 
-export default function QuestionForm({ data, question, defaultTopicId, onClose }: { data: StudyData; question: Question | null; defaultTopicId?: string; onClose: () => void }) {
+export default function QuestionForm({
+  data,
+  question,
+  defaultTopicId,
+  initial,
+  onClose,
+}: {
+  data: StudyData;
+  question: Question | null;
+  defaultTopicId?: string;
+  /** prefill for a new question, e.g. a textbook passage */
+  initial?: Partial<Question>;
+  onClose: () => void;
+}) {
   const [q, setQ] = useState<Question>(() => {
-    if (!question) return blankQuestion(defaultTopicId);
+    if (!question) return { ...blankQuestion(defaultTopicId), ...initial };
     if (question.type === 'mcq' && question.options.length < 4) {
       return { ...question, options: [...question.options, ...Array(4 - question.options.length).fill('')] };
     }
@@ -148,7 +181,7 @@ export default function QuestionForm({ data, question, defaultTopicId, onClose }
     await db.questions.put({ ...normalizeQuestion(q), updatedAt: nowIso() });
     toast(question ? 'Question updated' : 'Question saved');
     if (addAnother) {
-      setQ({ ...blankQuestion(q.topicId), type: q.type, textbookId: q.textbookId, chapter: q.chapter });
+      setQ({ ...blankQuestion(q.topicId), type: q.type, textbookId: q.textbookId, chapter: q.chapter, source: q.source });
       setError(null);
     } else onClose();
   };

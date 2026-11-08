@@ -1,8 +1,6 @@
-import { useLiveQuery } from 'dexie-react-hooks';
 import { useSearchParams } from 'react-router-dom';
-import { db } from '../../db/db';
 import { PageHeader, Tabs } from '../../components/ui';
-import { todayStr } from '../../lib/utils';
+import { useDueCounts } from '../../lib/queue';
 import Essays from './Essays';
 import Progress from './Progress';
 import QuestionBank from './QuestionBank';
@@ -20,8 +18,7 @@ export default function StudyPage() {
   const tab: Tab = tabParam && TABS.includes(tabParam) ? tabParam : 'topics';
   const mode = (params.get('mode') as QuizMode | null) ?? 'due';
   const data = useStudyData();
-  const today = todayStr();
-  const due = useLiveQuery(() => db.questions.where('srs.due').belowOrEqual(today).count(), [today]);
+  const due = useDueCounts()?.total;
 
   return (
     <div>

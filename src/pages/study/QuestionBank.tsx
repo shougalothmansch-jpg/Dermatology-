@@ -3,6 +3,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import type { Question } from '../../db/types';
 import { ConfirmDialog, Empty } from '../../components/ui';
+import AnkiCardView from '../../components/AnkiCardView';
+import SourceQuote from '../../components/SourceQuote';
+import AnkiImport from './AnkiImport';
 import { toast } from '../../components/Toast';
 import { useAiEnabled } from '../../lib/settings';
 import { formatDate, pct, todayStr } from '../../lib/utils';
@@ -20,6 +23,8 @@ export default function QuestionBank({ data }: { data: StudyData }) {
   const [deleting, setDeleting] = useState<Question | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [shown, setShown] = useState(50);
   const [aiEnabled] = useAiEnabled();
   const today = todayStr();
 
@@ -29,7 +34,7 @@ export default function QuestionBank({ data }: { data: StudyData }) {
       (q) =>
         (!topicId || q.topicId === topicId) &&
         (!textbookId || q.textbookId === textbookId) &&
-        (!type || q.type === type) &&
+        (!type || q.type === type || (type === 'sourced' && !!q.source)) &&
         (!s || q.stem.toLowerCase().includes(s) || q.explanation.toLowerCase().includes(s)),
     );
   }, [questions, topicId, textbookId, type, search]);
@@ -49,8 +54,11 @@ export default function QuestionBank({ data }: { data: StudyData }) {
           <option value="">All types</option>
           <option value="mcq">MCQ</option>
           <option value="short">Short answer</option>
+          <option value="anki">Anki cards</option>
+          <option value="sourced">From my textbooks</option>
         </select>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex flex-wrap gap-2">
+          <button className="btn-secondary" onClick={() => setImporting(true)}>⇪ Import Anki deck</button>
           {aiEnabled && <button className="btn-secondary" onClick={() => setGenerating(true)}>✦ Generate questions</button>}
           <button className="btn-primary" onClick={() => setEditing('new')}>+ New question</button>
         </div>
@@ -63,7 +71,7 @@ export default function QuestionBank({ data }: { data: StudyData }) {
         </Empty>
       ) : (
         <ul className="space-y-2">
-          {filtered.map((q) => {
+          {filtered.slice(0, shown).map((q) => {
             const topic = data.topicById.get(q.topicId);
             const book = q.textbookId ? data.textbookById.get(q.textbookId) : undefined;
             const isOpen = expanded === q.id;
@@ -72,7 +80,8 @@ export default function QuestionBank({ data }: { data: StudyData }) {
                 <div className="flex flex-wrap items-start gap-3">
                   <button className="min-w-0 flex-1 text-left" onClick={() => setExpanded(isOpen ? null : q.id)}>
                     <div className="mb-1 flex flex-wrap gap-1.5 text-xs">
-                      <span className="badge bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300">{q.type === 'mcq' ? 'MCQ' : 'Short answer'}</span>
+                      <span className="badge bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300">{q.type === 'mcq' ? 'MCQ' : q.type === 'anki' ? 'Anki' : 'Short answer'}</span>
+                      {q.source && <span className="badge bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">📖 sourced</span>}
                       <span className="badge bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{topic?.name ?? 'Unknown topic'}</span>
                       {book && <span className="badge bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{book.shortName}{q.chapter && ` ch. ${q.chapter}`}</span>}
                       {q.tags?.includes('ai-draft') && <span className="badge bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300">AI-drafted</span>}
@@ -88,7 +97,13 @@ export default function QuestionBank({ data }: { data: StudyData }) {
                 </div>
                 {isOpen && (
                   <div className="mt-3 border-t border-slate-100 pt-3 text-sm dark:border-slate-800">
-                    {q.type === 'mcq' ? (
+                    {q.type === 'anki' && q.anki ? (
+                      <div className="mb-2 space-y-3">
+                        <AnkiCardView html={q.anki.front} notetypeId={q.anki.notetypeId} />
+                        <hr className="border-slate-200 dark:border-slate-700" />
+                        <AnkiCardView html={q.anki.back} notetypeId={q.anki.notetypeId} />
+                      </div>
+                    ) : q.type === 'mcq' ? (
                       <ol className="mb-2 space-y-1">
                         {q.options.map((o, i) => (
                           <li key={i} className={i === q.correctIndex ? 'font-medium text-emerald-700 dark:text-emerald-400' : ''}>
@@ -99,6 +114,7 @@ export default function QuestionBank({ data }: { data: StudyData }) {
                     ) : (
                       <p className="mb-2 whitespace-pre-wrap"><b>Answer:</b> {q.answer}</p>
                     )}
+                    {q.source && <div className="mb-2"><SourceQuote source={q.source} /></div>}
                     {q.explanation && <p className="muted whitespace-pre-wrap">{q.explanation}</p>}
                     <div className="mt-3 flex gap-2">
                       <button className="btn-secondary btn-sm" onClick={() => setEditing(q)}>Edit</button>
@@ -111,7 +127,13 @@ export default function QuestionBank({ data }: { data: StudyData }) {
           })}
         </ul>
       )}
+      {filtered.length > shown && (
+        <div className="mt-4 text-center">
+          <button className="btn-secondary" onClick={() => setShown((n) => n + 100)}>Show more ({filtered.length - shown} left)</button>
+        </div>
+      )}
 
+      {importing && <AnkiImport onClose={() => setImporting(false)} />}
       {editing && <QuestionForm data={data} question={editing === 'new' ? null : editing} defaultTopicId={topicId || undefined} onClose={() => setEditing(null)} />}
       {generating && <GenerateQuestions data={data} defaultTopicId={topicId || undefined} onClose={() => setGenerating(false)} />}
       <ConfirmDialog

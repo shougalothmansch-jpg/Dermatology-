@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom';
 import { db } from '../db/db';
 import { Card, Empty, PageHeader, ProgressBar, Stat } from '../components/ui';
 import { completionPct } from '../lib/prospero';
-import { formatDate, formatDateTime, pct, todayStr } from '../lib/utils';
+import { useDueCounts } from '../lib/queue';
+import { formatDate, formatDateTime, pct } from '../lib/utils';
 import { useStudyData } from './study/useStudyData';
 
 export default function Dashboard() {
   const data = useStudyData();
-  const today = todayStr();
-  const due = useLiveQuery(() => db.questions.where('srs.due').belowOrEqual(today).count(), [today]);
+  const counts = useDueCounts();
+  const due = counts?.total;
   const totalQuestions = useLiveQuery(() => db.questions.count(), []);
   const essays = useLiveQuery(() => db.essays.orderBy('createdAt').reverse().limit(5).toArray(), []);
   const club = useLiveQuery(() => db.clubEntries.toArray(), []);
@@ -36,7 +37,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Topics mastered" value={`${pct(mastered, data.topics.length)}%`} sub={`${mastered} of ${data.topics.length} · ${started} started`} />
         <Link to="/study?tab=quiz&mode=due" className="block">
-          <Stat label="Questions due today" value={due} sub={totalQuestions ? `of ${totalQuestions} in bank →` : 'Add questions to begin'} />
+          <Stat label="Due today" value={due} sub={totalQuestions ? `${counts?.reviews} reviews · ${counts?.fresh} new →` : 'Add questions to begin'} />
         </Link>
         <Link to="/club" className="block">
           <Stat label="Club hours" value={clubHours} sub={`${club.length} activities logged`} />
@@ -71,7 +72,7 @@ export default function Dashboard() {
           <Card title="Today">
             {due > 0 ? (
               <div>
-                <p className="mb-3 text-sm">You have <b>{due}</b> question{due === 1 ? '' : 's'} due for spaced review.</p>
+                <p className="mb-3 text-sm">You have <b>{counts?.reviews}</b> review{counts?.reviews === 1 ? '' : 's'} and <b>{counts?.fresh}</b> new card{counts?.fresh === 1 ? '' : 's'} for today.</p>
                 <Link to="/study?tab=quiz&mode=due" className="btn-primary">Start review</Link>
               </div>
             ) : (
