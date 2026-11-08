@@ -4,6 +4,7 @@ import type { Textbook } from '../../db/types';
 import { Card, ConfirmDialog, Empty, Field, Modal } from '../../components/ui';
 import { toast } from '../../components/Toast';
 import { uid } from '../../lib/utils';
+import BookFiles from './BookFiles';
 import { moveItem } from './TopicMap';
 import type { StudyData } from './useStudyData';
 
@@ -19,14 +20,15 @@ export default function TextbookManager({ data }: { data: StudyData }) {
       actions={<button className="btn-primary" onClick={() => setEditing('new')}>+ Add textbook</button>}
     >
       <p className="muted mb-4 text-sm">
-        Each topic can be linked to a chapter in every textbook. Derm Path stores only the chapter reference — never textbook text.
+        Link topics to chapters, and add your own PDFs of each book to read them here, quote passages in your questions, and generate questions from specific pages. PDFs stay on this device only.
       </p>
       {data.textbooks.length === 0 ? (
         <Empty title="No textbooks yet" />
       ) : (
         <ul className="divide-y divide-slate-100 dark:divide-slate-800">
           {data.textbooks.map((b, i) => (
-            <li key={b.id} className="flex flex-wrap items-center gap-3 py-3">
+            <li key={b.id} className="py-3">
+              <div className="flex flex-wrap items-center gap-3">
               <div className="flex gap-0.5">
                 <button className="btn-ghost btn-sm" disabled={i === 0} onClick={() => moveItem('textbooks', data.textbooks, i, -1)} aria-label="Move up">↑</button>
                 <button className="btn-ghost btn-sm" disabled={i === data.textbooks.length - 1} onClick={() => moveItem('textbooks', data.textbooks, i, 1)} aria-label="Move down">↓</button>
@@ -37,6 +39,8 @@ export default function TextbookManager({ data }: { data: StudyData }) {
               </div>
               <button className="btn-secondary btn-sm" onClick={() => setEditing(b)}>Edit</button>
               <button className="btn-ghost btn-sm text-rose-600" onClick={() => setDeleting(b)}>Delete</button>
+              </div>
+              <BookFiles book={b} />
             </li>
           ))}
         </ul>
@@ -45,13 +49,14 @@ export default function TextbookManager({ data }: { data: StudyData }) {
       <ConfirmDialog
         open={!!deleting}
         title="Delete textbook?"
-        message={<>Remove <b>{deleting?.name}</b>? Chapter links to it will be removed from all topics. Your questions are kept.</>}
+        message={<>Remove <b>{deleting?.name}</b>? Chapter links and its PDFs on this device will be removed. Your questions are kept.</>}
         onClose={() => setDeleting(null)}
         onConfirm={async () => {
           if (!deleting) return;
           const id = deleting.id;
-          await db.transaction('rw', [db.textbooks, db.topics, db.questions], async () => {
+          await db.transaction('rw', [db.textbooks, db.topics, db.questions, db.bookFiles], async () => {
             await db.textbooks.delete(id);
+            await db.bookFiles.where('textbookId').equals(id).delete();
             await db.topics.toCollection().modify((t) => {
               delete t.chapters[id];
             });

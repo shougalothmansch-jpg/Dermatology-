@@ -7,6 +7,7 @@ import ResearchPage from './pages/research/ResearchPage';
 import ProtocolEditor from './pages/research/ProtocolEditor';
 import ProtocolPrint from './pages/research/ProtocolPrint';
 import Settings from './pages/Settings';
+import Reader from './pages/study/Reader';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="study" element={<StudyPage />} />
+        <Route path="read/:fileId" element={<Reader />} />
         <Route path="club" element={<ClubPage />} />
         <Route path="research" element={<ResearchPage />} />
         <Route path="research/:id" element={<ProtocolEditor />} />

@@ -37,7 +37,7 @@ export interface Topic {
   updatedAt: string;
 }
 
-export type QuestionType = 'mcq' | 'short';
+export type QuestionType = 'mcq' | 'short' | 'anki';
 
 export interface SrsState {
   ease: number;
@@ -48,11 +48,32 @@ export interface SrsState {
   lastReviewed?: string;
 }
 
+/** Where in one of your own textbook PDFs a question comes from. */
+export interface QuestionSource {
+  fileId: string;
+  page: number; // 1-based PDF page
+  quote: string; // exact passage, stored only on this device
+}
+
+/** Fields carried by cards imported from Anki. */
+export interface AnkiCardData {
+  cardId: number; // Anki card id — used to avoid duplicates on re-import
+  noteId: number;
+  notetypeId: string; // AnkiNotetype.id (holds the card CSS)
+  deck: string;
+  front: string; // rendered HTML (image src = media filenames)
+  back: string;
+}
+
 export interface Question {
   id: string;
   topicId: string;
   textbookId?: string;
   chapter?: string;
+  source?: QuestionSource;
+  anki?: AnkiCardData;
+  /** YYYY-MM-DD of the first time this question was answered (for the new-cards/day limit) */
+  firstStudied?: string;
   type: QuestionType;
   stem: string;
   options: string[]; // MCQ only
@@ -109,6 +130,33 @@ export interface Essay {
   reflection: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** A PDF of (part of) one of your textbooks, stored only on this device. */
+export interface BookFile {
+  id: string;
+  textbookId: string;
+  name: string; // e.g. "Ch. 8 Psoriasis" or the file name
+  blob: Blob;
+  size: number;
+  pageCount: number;
+  /** printed page number of PDF page 1 minus 1 (so printed = pdfPage + offset); optional */
+  pageOffset?: number;
+  hasText: boolean; // false for scanned PDFs without a text layer
+  lastPage?: number;
+  addedAt: string;
+}
+
+export interface AnkiNotetype {
+  id: string; // `${importId}:${ankiNotetypeId}`
+  name: string;
+  css: string;
+}
+
+/** An image or other media file from an Anki deck. */
+export interface MediaFile {
+  name: string; // file name as referenced on cards
+  blob: Blob;
 }
 
 // ---------- Interest group ----------

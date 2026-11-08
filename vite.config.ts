@@ -31,8 +31,8 @@ export default defineConfig({
       },
       workbox: {
         // cache the app shell (incl. the lazily-loaded AI chunk) so it works offline
-        globPatterns: ['**/*.{js,css,html,svg,png}'],
-        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        globPatterns: ['**/*.{js,mjs,css,html,svg,png,wasm}'],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
     }),
   ],
