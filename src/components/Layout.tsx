@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useTheme } from '../lib/settings';
 import { cx } from '../lib/utils';
 import { ToastHost } from './Toast';
+import SafariNotice from './SafariNotice';
 
 const LOGO = `${import.meta.env.BASE_URL}favicon.svg`;
 
@@ -64,6 +65,7 @@ export default function Layout() {
 
       <main className="min-w-0 flex-1 px-4 pb-24 pt-5 sm:px-6 md:pb-10 lg:px-10">
         <div className="mx-auto max-w-6xl">
+          <SafariNotice />
           <Outlet />
         </div>
       </main>
