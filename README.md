@@ -27,7 +27,7 @@ The production build in `dist/` is plain static files that you can host anywhere
 
 ## Use it on iPhone
 
-The app is published to GitHub Pages at **https://shougalothmansch-jpg.github.io/Dermatology-/**. Every push to `main` redeploys it automatically through `.github/workflows/deploy.yml`.
+The app is published on Netlify at **https://zippy-malasada-7512e5.netlify.app**. Updates are published with `scripts/deploy-netlify.sh` (see "Publishing updates" below).
 
 To install it:
 1. Open the link in **Safari**.
