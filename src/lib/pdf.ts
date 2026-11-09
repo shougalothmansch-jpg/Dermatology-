@@ -85,11 +85,11 @@ export async function pageText(doc: PDFDocumentProxy, pageNum: number): Promise<
 
 /**
  * Joins lines that the PDF wrapped mid-sentence (next line starts in lower case),
- * and re-joins words hyphenated across lines. Headings and paragraph ends stay put.
+ * and re-joins words split at a hyphen across lines (keeping the hyphen). Headings and paragraph ends stay put.
  */
 export function reflow(text: string): string {
   return text
-    .replace(/([a-z])-\n([a-z])/g, '$1$2')
+    .replace(/([a-z])-\n([a-z])/g, '$1-$2') // keep the hyphen: real compounds (normal-appearing) are common
     .replace(/([^.:;!?\n])\n(?=[a-z(,])/g, '$1 ');
 }
 

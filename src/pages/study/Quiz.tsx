@@ -166,6 +166,18 @@ function QuizSession({ data, questions, onExit }: { data: StudyData; questions: 
   const q = questions[idx];
   const done = idx >= questions.length;
 
+  /** Remove an unhelpful generated question and move on without recording an answer. */
+  const discard = async () => {
+    await db.transaction('rw', [db.questions, db.attempts], async () => {
+      await db.attempts.where('questionId').equals(q.id).delete();
+      await db.questions.delete(q.id);
+    });
+    setIdx((i) => i + 1);
+    setSelected(null);
+    setRevealed(false);
+    setShortText('');
+  };
+
   const record = async (quality: number, correct: boolean) => {
     const fresh = await db.questions.get(q.id);
     if (fresh) {
@@ -303,6 +315,11 @@ function QuizSession({ data, questions, onExit }: { data: StudyData; questions: 
                     ))}
                   </div>
                 </>
+              )}
+              {(q.tags?.includes('auto') || q.tags?.includes('ai-draft')) && (
+                <button className="btn-ghost btn-sm mt-3 text-rose-600" onClick={discard}>
+                  🗑 Not a good question — delete it
+                </button>
               )}
             </div>
           </>

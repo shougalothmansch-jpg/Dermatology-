@@ -36,7 +36,7 @@ export default function QuestionBank({ data }: { data: StudyData }) {
       (q) =>
         (!topicId || q.topicId === topicId) &&
         (!textbookId || q.textbookId === textbookId) &&
-        (!type || q.type === type || (type === 'sourced' && !!q.source) || (type === 'ai' && !!q.tags?.includes('ai-draft'))) &&
+        (!type || q.type === type || (type === 'sourced' && !!q.source) || (type === 'ai' && !!q.tags?.includes('ai-draft')) || (type === 'auto' && !!q.tags?.includes('auto'))) &&
         (!s || q.stem.toLowerCase().includes(s) || q.explanation.toLowerCase().includes(s)),
     );
   }, [questions, topicId, textbookId, type, search]);
@@ -59,6 +59,7 @@ export default function QuestionBank({ data }: { data: StudyData }) {
           <option value="anki">Anki cards</option>
           <option value="sourced">From my textbooks</option>
           <option value="ai">AI-drafted</option>
+          <option value="auto">Auto (free)</option>
         </select>
         <div className="ml-auto flex flex-wrap gap-2">
           <button className="btn-secondary" onClick={() => setImporting(true)}>⇪ Import Anki deck</button>
@@ -89,6 +90,7 @@ export default function QuestionBank({ data }: { data: StudyData }) {
                       <span className="badge bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{topic?.name ?? 'Unknown topic'}</span>
                       {book && <span className="badge bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{book.shortName}{q.chapter && ` ch. ${q.chapter}`}</span>}
                       {q.tags?.includes('ai-draft') && <span className="badge bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300">AI-drafted</span>}
+                      {q.tags?.includes('auto') && <span className="badge bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">Auto</span>}
                     </div>
                     <div className={isOpen ? 'whitespace-pre-wrap text-sm' : 'line-clamp-2 text-sm'}>{q.stem}</div>
                   </button>
