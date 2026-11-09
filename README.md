@@ -42,6 +42,10 @@ Good to know on iPhone:
 
 One-time setup (already done if the link works): in the GitHub repo, open **Settings → Pages** and set **Source** to **GitHub Actions**.
 
+## Publishing updates (Netlify)
+
+The app is hosted at **https://zippy-malasada-7512e5.netlify.app**. `scripts/deploy-netlify.sh` builds the app and uploads it to that Netlify site. It needs a Netlify personal access token: in a Claude Code cloud session the network proxy supplies it, and elsewhere you set `NETLIFY_AUTH_TOKEN`. The GitHub Pages workflow in `.github/workflows/` is still there for when GitHub hosting is available again.
+
 ## Back up your data
 
 Your data lives only in the browser profile you use. Clearing site data, using a private window, or switching browsers or devices will **not** bring it with you.
