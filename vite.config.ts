@@ -1,13 +1,26 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { execSync } from 'node:child_process';
 
 // BASE_PATH is set by the GitHub Pages workflow (e.g. "/Dermatology-/").
 // Locally it defaults to "/".
 const base = process.env.BASE_PATH || '/';
 
+// Shown in Settings so you can tell which version is installed, e.g. "2026-11-09 04:40 · 595d514".
+function gitShort() {
+  try {
+    return execSync('git rev-parse --short HEAD').toString().trim();
+  } catch {
+    return 'dev';
+  }
+}
+const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+const APP_VERSION = `${stamp} UTC · ${gitShort()}`;
+
 export default defineConfig({
   base,
+  define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
   plugins: [
     react(),
     VitePWA({

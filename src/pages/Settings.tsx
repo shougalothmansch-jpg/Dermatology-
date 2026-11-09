@@ -32,6 +32,18 @@ export default function Settings() {
     return out;
   }, []);
 
+  const checkForUpdate = async () => {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (!reg) return toast('Updates load automatically when you reopen the app');
+    toast('Checking…');
+    navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), { once: true });
+    await reg.update().catch(() => undefined);
+    // a new version installs and takes over by itself (the page then reloads); otherwise you're up to date
+    setTimeout(() => {
+      if (!reg.installing && !reg.waiting) toast('You have the latest version');
+    }, 2500);
+  };
+
   const doExport = async () => {
     const backup = await exportAll();
     await downloadFile(`derm-path-backup-${todayStr()}.json`, JSON.stringify(backup, null, 2));
@@ -53,7 +65,7 @@ export default function Settings() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Settings" />
+      <PageHeader title="Settings" subtitle={<>App version: <b>{__APP_VERSION__}</b></>} />
 
       <Card title="Appearance">
         <div className="flex gap-2">
@@ -150,9 +162,13 @@ export default function Settings() {
         )}
       </Card>
 
-      <Card title="About">
-        <p className="muted text-sm">
-          Derm Path stores only your own notes, questions, essays, logs and protocols. It contains no textbook text. Works offline once loaded; no account, no server.
+      <Card title="App version">
+        <p className="text-sm">
+          You have version <b>{__APP_VERSION__}</b>.
+        </p>
+        <button className="btn-secondary mt-3" onClick={checkForUpdate}>Check for updates</button>
+        <p className="muted mt-3 text-xs">
+          Your data stays on this device. Textbook PDFs and Anki images are stored only here and are never uploaded. Works offline once loaded.
         </p>
       </Card>
 
