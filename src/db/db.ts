@@ -5,6 +5,7 @@ import type {
   BookFile,
   ClubEntry,
   PdfChunk,
+  PdfPageText,
   Essay,
   EssayPrompt,
   MediaFile,
@@ -39,6 +40,7 @@ export class DermPathDB extends Dexie {
   meta!: Table<MetaRow, string>;
   pdfs!: Table<BookFile, string>;
   pdfChunks!: Table<PdfChunk, [string, number]>;
+  pdfPages!: Table<PdfPageText, [string, number]>;
   ankiNotetypes!: Table<AnkiNotetype, string>;
   media!: Table<MediaFile, string>;
 
@@ -70,6 +72,9 @@ export class DermPathDB extends Dexie {
       pdfs: 'id, textbookId',
       pdfChunks: '[fileId+index], fileId',
     });
+    this.version(4).stores({
+      pdfPages: '[fileId+page], fileId',
+    });
     this.on('populate', (tx) => {
       const seed = buildSeed();
       tx.table('textbooks').bulkAdd(seed.textbooks);
@@ -99,7 +104,7 @@ export const TABLE_NAMES = [
 ] as const;
 
 /** Large binary tables kept out of the JSON backup (PDFs and deck images). */
-export const BINARY_TABLES = ['pdfs', 'pdfChunks', 'media'] as const;
+export const BINARY_TABLES = ['pdfs', 'pdfChunks', 'pdfPages', 'media'] as const;
 export const ALL_TABLES = [...TABLE_NAMES, ...BINARY_TABLES] as const;
 export type TableName = (typeof TABLE_NAMES)[number];
 

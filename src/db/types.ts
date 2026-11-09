@@ -30,11 +30,19 @@ export interface Topic {
   order: number;
   /** textbookId -> chapter reference (free text, e.g. "12" or "12–13") */
   chapters: Record<string, string>;
+  /** where this topic is covered in your PDFs (used to find book quotes and write questions) */
+  pages?: TopicPages[];
   status: TopicStatus;
   /** 0 = unrated, 1–5 */
   confidence: number;
   notes: string;
   updatedAt: string;
+}
+
+export interface TopicPages {
+  fileId: string;
+  from: number; // PDF pages, inclusive
+  to: number;
 }
 
 export type QuestionType = 'mcq' | 'short' | 'anki';
@@ -149,7 +157,16 @@ export interface BookFile {
   pageOffset?: number;
   hasText: boolean; // false for scanned PDFs without a text layer
   lastPage?: number;
+  /** how many pages' text has been saved for searching (equals pageCount when done) */
+  indexedPages?: number;
   addedAt: string;
+}
+
+/** Text of one PDF page, saved so the app can search your books for quotes. */
+export interface PdfPageText {
+  fileId: string;
+  page: number;
+  text: string;
 }
 
 /** One slice (a few MB) of a stored PDF. */

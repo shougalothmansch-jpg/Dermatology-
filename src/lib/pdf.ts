@@ -128,3 +128,40 @@ export function quoteFound(quote: string, page: string): boolean {
   const q = normalizeForMatch(quote);
   return q.length > 0 && normalizeForMatch(page).includes(q);
 }
+
+export interface OutlineItem {
+  title: string;
+  page: number; // first PDF page
+  endPage: number; // last PDF page (before the next item at the same or a higher level)
+  depth: number; // 0 = top level
+}
+
+/** The PDF's bookmarks (table of contents), flattened, with page ranges. Empty if the PDF has none. */
+export async function getChapters(doc: PDFDocumentProxy): Promise<OutlineItem[]> {
+  const outline = await doc.getOutline();
+  if (!outline?.length) return [];
+  const flat: Omit<OutlineItem, 'endPage'>[] = [];
+  const resolve = async (dest: unknown): Promise<number | null> => {
+    try {
+      const d = typeof dest === 'string' ? await doc.getDestination(dest) : (dest as unknown[] | null);
+      if (!Array.isArray(d) || !d.length) return null;
+      const ref = d[0];
+      if (typeof ref === 'number') return ref + 1;
+      return (await doc.getPageIndex(ref as Parameters<PDFDocumentProxy['getPageIndex']>[0])) + 1;
+    } catch {
+      return null;
+    }
+  };
+  const walk = async (items: Awaited<ReturnType<PDFDocumentProxy['getOutline']>>, depth: number) => {
+    for (const it of items ?? []) {
+      const page = await resolve(it.dest);
+      if (page) flat.push({ title: it.title.replace(/\s+/g, ' ').trim(), page, depth });
+      if (it.items?.length && depth < 3) await walk(it.items, depth + 1);
+    }
+  };
+  await walk(outline, 0);
+  return flat.map((it, i) => {
+    const next = flat.slice(i + 1).find((n) => n.depth <= it.depth);
+    return { ...it, endPage: Math.max(it.page, (next?.page ?? doc.numPages + 1) - 1) };
+  });
+}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router-dom';
 import { db } from '../../db/db';
@@ -45,6 +45,22 @@ export default function GenerateQuestions({
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const apiKey = getApiKey();
 
+  // when a topic linked to book pages is chosen, write from those pages by default
+  const pickTopic = (id: string) => {
+    setTopicId(id);
+    const range = data.topicById.get(id)?.pages?.[0];
+    if (range && !initialPages) {
+      setFromBook(true);
+      setFileId(range.fileId);
+      setFrom(String(range.from));
+      setTo(String(Math.min(range.to, range.from + MAX_PAGES - 1)));
+    }
+  };
+  useEffect(() => {
+    if (defaultTopicId) pickTopic(defaultTopicId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const textFiles = (files ?? []).filter((f) => f.hasText);
   const file = textFiles.find((f) => f.id === fileId);
   const pFrom = Math.max(1, parseInt(from, 10) || 1);
@@ -62,15 +78,21 @@ export default function GenerateQuestions({
       if (fromBook) {
         if (!file) return setError('Choose a PDF.');
         if (rangeError) return setError(rangeError);
-        const { openStoredPdf, rangeText } = await import('../../lib/pdf');
         setBusy('Reading pages…');
-        const doc = await openStoredPdf(file);
-        try {
-          const r = await rangeText(doc, pFrom, pTo, (p) => setBusy(`Reading page ${p} of ${pTo}…`));
-          sourceText = r.text;
-          pages = r.pages;
-        } finally {
-          void doc.destroy();
+        const saved = await db.pdfPages.where('[fileId+page]').between([file.id, pFrom], [file.id, pTo], true, true).toArray();
+        if (saved.length === pTo - pFrom + 1) {
+          pages = new Map(saved.map((r) => [r.page, r.text]));
+          sourceText = saved.map((r) => `[Page ${r.page}]\n${r.text}`).join('\n\n');
+        } else {
+          const { openStoredPdf, rangeText } = await import('../../lib/pdf');
+          const doc = await openStoredPdf(file);
+          try {
+            const r = await rangeText(doc, pFrom, pTo, (p) => setBusy(`Reading page ${p} of ${pTo}…`));
+            sourceText = r.text;
+            pages = r.pages;
+          } finally {
+            void doc.destroy();
+          }
         }
         if (sourceText.replace(/\[Page \d+\]|\s/g, '').length < 200) throw new Error('These pages contain almost no text to write questions from.');
         const book = data.textbookById.get(file.textbookId);
@@ -223,7 +245,7 @@ export default function GenerateQuestions({
             </>
           )}
 
-          <Field label="Tag questions to topic" className="sm:col-span-2"><TopicSelect data={data} value={topicId} onChange={setTopicId} /></Field>
+          <Field label="Tag questions to topic" className="sm:col-span-2"><TopicSelect data={data} value={topicId} onChange={pickTopic} /></Field>
           <Field label="Number of questions">
             <input type="number" min={1} max={20} className="input" value={count} onChange={(e) => setCount(Math.max(1, Math.min(20, Number(e.target.value) || 1)))} />
           </Field>

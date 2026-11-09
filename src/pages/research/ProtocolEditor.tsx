@@ -16,36 +16,76 @@ export default function ProtocolEditor() {
   const [state, setState] = useState<'saved' | 'saving' | 'dirty'>('saved');
   const timer = useRef<number>();
   const latest = useRef<Protocol | null>(null);
+  const dirty = useRef(false);
+
+  const draftKey = `dermpath.protocolDraft.${id}`;
 
   useEffect(() => {
     if (stored && (!draft || draft.id !== stored.id)) {
-      setDraft(stored);
-      latest.current = stored;
+      let initial = stored;
+      // recover edits saved to the device when the app closed before they reached the database
+      try {
+        const raw = localStorage.getItem(draftKey);
+        const rescue = raw ? (JSON.parse(raw) as { name: string; fields: Record<string, string>; at: number }) : null;
+        if (rescue && rescue.at > Date.parse(stored.updatedAt)) {
+          initial = { ...stored, name: rescue.name, fields: rescue.fields };
+          dirty.current = true;
+          timer.current = window.setTimeout(() => void persistRef.current(), 0);
+        } else if (raw) localStorage.removeItem(draftKey);
+      } catch {
+        /* storage unavailable */
+      }
+      setDraft(initial);
+      latest.current = initial;
     }
-  }, [stored, draft]);
+  }, [stored, draft, draftKey]);
 
   const persist = useCallback(async () => {
     window.clearTimeout(timer.current);
     const p = latest.current;
     if (!p) return;
+    dirty.current = false;
     setState('saving');
     const updatedAt = nowIso();
     await db.protocols.update(p.id, { name: p.name, fields: p.fields, updatedAt });
-    latest.current = { ...p, updatedAt };
+    // keep any edits made while saving; just record the new timestamp
+    if (latest.current) latest.current = { ...latest.current, updatedAt };
     setDraft((d) => (d ? { ...d, updatedAt } : d));
-    setState('saved');
-  }, []);
+    if (dirty.current) setState('dirty');
+    else {
+      setState('saved');
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [draftKey]);
+  const persistRef = useRef(persist);
+  persistRef.current = persist;
+
+  /** Writes the latest edits to localStorage synchronously — survives the app being closed mid-save. */
+  const rescueToDevice = useCallback(() => {
+    const p = latest.current;
+    if (!p || !dirty.current) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({ name: p.name, fields: p.fields, at: Date.now() }));
+    } catch {
+      /* ignore */
+    }
+  }, [draftKey]);
 
   const change = (patch: Partial<Protocol>) => {
-    setDraft((d) => {
-      if (!d) return d;
-      const next = { ...d, ...patch };
-      latest.current = next;
-      return next;
-    });
+    const base = latest.current;
+    if (!base) return;
+    // compute from the latest edit synchronously, so quick successive edits never overwrite each other
+    const next = { ...base, ...patch };
+    latest.current = next;
+    setDraft(next);
+    dirty.current = true;
     setState('dirty');
     window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(persist, 900);
+    timer.current = window.setTimeout(persist, 400);
   };
 
   const setField = (key: string, value: string) => {
@@ -53,22 +93,33 @@ export default function ProtocolEditor() {
     change({ fields: { ...latest.current.fields, [key]: value } });
   };
 
-  // warn on tab close with unsaved changes; flush pending edits on unmount
-  const dirty = useRef(false);
-  dirty.current = state !== 'saved';
+  // Save pending edits as soon as the app is hidden (switching apps, locking the
+  // phone, closing the tab) — more reliable on iPhone than waiting for unload —
+  // and when leaving this screen.
   useEffect(() => {
-    const h = (e: BeforeUnloadEvent) => {
+    const flush = () => {
       if (dirty.current) {
+        rescueToDevice();
         void persist();
+      }
+    };
+    const onHide = () => document.visibilityState === 'hidden' && flush();
+    const onUnload = (e: BeforeUnloadEvent) => {
+      if (dirty.current) {
+        flush();
         e.preventDefault();
       }
     };
-    window.addEventListener('beforeunload', h);
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', flush);
+    window.addEventListener('beforeunload', onUnload);
     return () => {
-      window.removeEventListener('beforeunload', h);
-      if (dirty.current) void persist();
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('beforeunload', onUnload);
+      flush();
     };
-  }, [persist]);
+  }, [persist, rescueToDevice]);
 
   // Ctrl/Cmd+S
   useEffect(() => {

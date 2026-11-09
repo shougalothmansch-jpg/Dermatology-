@@ -82,6 +82,11 @@ Textbook PDFs and Anki images are also left out of backups because they're too l
   - **Make questions from a passage:** in **Text** view, select a passage and tap **Make question**. The question is saved with the exact quote and page number, and an **Open page** link takes you back to that page.
   - **Book page numbers:** if a PDF is a chapter, enter the printed page number of its first page so citations show real book pages.
   - **Scanned PDFs** (no text layer) can be read but not quoted.
+- **Topics from your books:** on a PDF in **Study → Textbooks**, tap **Topics from chapters**. The app reads the PDF's bookmarks (its table of contents) and links each chapter to the matching syllabus topic, or creates a new one. You can choose which bookmark level counts as a topic, and review every match before applying. Each topic then knows which pages cover it. You can also add page ranges by hand in the topic editor.
+- **Book quotes after every answer:** after you add a PDF, the app saves its text in the background to make it searchable. When you answer any question (your own, AI-drafted or an Anki card), it shows the best-matching passage from your books, with the book and page.
+  - **Where it looks:** it searches the topic's own chapter first, then all your books.
+  - **Your options:** tap **Use as source** to save the quote with the question, **Next match** to see another, or **✦ Find exact quote with AI** to have Claude pick the exact passage. The AI's quote is checked word-for-word against the book before it's saved.
+  - **No forced matches:** if nothing in your books really matches, it says so rather than showing an unrelated passage.
 - **Anki import:** **Question bank → Import Anki deck** takes an `.apkg` file exported from Anki, in either the old or new format.
   - **Cards keep their look:** images and deck styling come across, and basic, reversed and cloze cards are all supported.
   - **Subdecks become topics:** each subdeck is matched to a syllabus topic with the same name, or gets a new topic under an "Anki: …" section.

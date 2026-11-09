@@ -6,6 +6,9 @@ import { ConfidenceStars, ConfirmDialog, Empty, Field, Modal, ProgressBar } from
 import { toast } from '../../components/Toast';
 import { cx, nowIso, pct, uid } from '../../lib/utils';
 import type { StudyData } from './useStudyData';
+import { Link } from 'react-router-dom';
+import type { TopicPages } from '../../db/types';
+import { pageLabel } from './BookFiles';
 
 export const STATUS_STYLES: Record<TopicStatus, string> = {
   'Not started': 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
@@ -133,7 +136,8 @@ export default function TopicMap({ data }: { data: StudyData }) {
                         <button className="min-w-0 basis-full text-left sm:basis-0 sm:flex-1" onClick={() => setEditing(t)}>
                           <div className="text-sm sm:truncate font-medium text-slate-800 dark:text-slate-100">{t.name}</div>
                           <div className="muted truncate text-xs">
-                            {chapterSummary || 'No chapters linked'}
+                            {t.pages?.length ? '📖 ' : ''}
+                            {chapterSummary || (t.pages?.length ? 'Book pages linked' : 'No chapters linked')}
                             {qn > 0 && ` · ${qn} question${qn === 1 ? '' : 's'}`}
                             {t.notes && ' · has notes'}
                           </div>
@@ -310,6 +314,9 @@ function TopicEditor({ data, topic, defaultSectionId, onClose }: { data: StudyDa
             {data.textbooks.length === 0 && <span className="muted text-sm">Add textbooks in the Textbooks tab.</span>}
           </div>
         </div>
+        <div className="sm:col-span-2">
+          <TopicPagesEditor data={data} pages={draft.pages ?? []} onChange={(pages) => set('pages', pages)} />
+        </div>
         <Field label="Notes" className="sm:col-span-2">
           <textarea className="input min-h-[140px]" value={draft.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Your own summary, mnemonics, key points…" />
         </Field>
@@ -326,5 +333,58 @@ function TopicEditor({ data, topic, defaultSectionId, onClose }: { data: StudyDa
         }}
       />
     </Modal>
+  );
+}
+
+/** Which PDF pages cover this topic — used to find book quotes and to write questions from the chapter. */
+function TopicPagesEditor({ data, pages, onChange }: { data: StudyData; pages: TopicPages[]; onChange: (p: TopicPages[]) => void }) {
+  const files = useLiveQuery(() => db.pdfs.toArray(), []);
+  const [fileId, setFileId] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const byId = new Map((files ?? []).map((f) => [f.id, f]));
+  const add = () => {
+    const f = byId.get(fileId);
+    const a = parseInt(from, 10);
+    const b = parseInt(to, 10) || a;
+    if (!f || !a) return;
+    onChange([...pages, { fileId, from: Math.max(1, Math.min(a, b)), to: Math.min(f.pageCount, Math.max(a, b)) }]);
+    setFrom('');
+    setTo('');
+  };
+  if (files && !files.length && !pages.length) return null;
+  return (
+    <div>
+      <span className="label">Pages in your PDFs</span>
+      {pages.length > 0 ? (
+        <ul className="mb-2 space-y-1 text-sm">
+          {pages.map((p, i) => {
+            const f = byId.get(p.fileId);
+            return (
+              <li key={i} className="flex flex-wrap items-center gap-2">
+                <span className="min-w-0 flex-1 truncate">
+                  📄 {f ? `${data.textbookById.get(f.textbookId)?.shortName ?? ''} · ${f.name}` : 'Removed PDF'} — {f ? pageLabel(f, p.from) : `p. ${p.from}`}–{f?.pageOffset !== undefined ? p.to + f.pageOffset : p.to}
+                </span>
+                {f && <Link to={`/read/${f.id}?page=${p.from}`} className="btn-ghost btn-sm">Read</Link>}
+                <button type="button" className="btn-ghost btn-sm text-rose-600" onClick={() => onChange(pages.filter((_, j) => j !== i))} aria-label="Remove pages">✕</button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="muted mb-2 text-xs">Not linked to any pages yet. Use “Topics from chapters” on a PDF in the Textbooks tab, or add a range here.</p>
+      )}
+      {!!files?.length && (
+        <div className="flex flex-wrap items-center gap-2">
+          <select className="input w-full sm:w-auto sm:flex-1" value={fileId} onChange={(e) => setFileId(e.target.value)}>
+            <option value="">Choose PDF…</option>
+            {files.map((f) => <option key={f.id} value={f.id}>{data.textbookById.get(f.textbookId)?.shortName} · {f.name}</option>)}
+          </select>
+          <input className="input w-20" inputMode="numeric" placeholder="from" value={from} onChange={(e) => setFrom(e.target.value.replace(/\D/g, ''))} aria-label="From PDF page" />
+          <input className="input w-20" inputMode="numeric" placeholder="to" value={to} onChange={(e) => setTo(e.target.value.replace(/\D/g, ''))} aria-label="To PDF page" />
+          <button type="button" className="btn-secondary btn-sm" disabled={!fileId || !from} onClick={add}>Add pages</button>
+        </div>
+      )}
+    </div>
   );
 }

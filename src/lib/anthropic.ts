@@ -117,6 +117,56 @@ export async function generateQuestions(opts: {
     }));
 }
 
+/**
+ * Picks the exact sentence(s) in the given book pages that support a question's answer.
+ * Returns null if none of the pages covers it.
+ */
+export async function findQuote(opts: {
+  apiKey: string;
+  question: string;
+  answer: string;
+  pages: { ref: string; text: string }[];
+}): Promise<{ ref: string; quote: string } | null> {
+  const client = new Anthropic({ apiKey: opts.apiKey, dangerouslyAllowBrowser: true });
+  const prompt = [
+    'Below are pages from the reader\'s own textbooks, each starting with a [ref] marker, and a study question with its answer.',
+    'Find the passage on these pages that best supports the answer.',
+    'Return its ref and the passage copied character-for-character (one or two sentences, max ~50 words). Do not paraphrase, fix typos, or join text from different places.',
+    'If none of the pages supports the answer, set found to false.',
+    '',
+    `<question>${opts.question}</question>`,
+    `<answer>${opts.answer}</answer>`,
+    '<pages>',
+    ...opts.pages.map((p) => `[${p.ref}]\n${p.text}`),
+    '</pages>',
+  ].join('\n');
+  const response = await client.beta.messages
+    .stream({
+      model: 'claude-opus-5-5',
+      max_tokens: 4000,
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+      output_config: {
+        effort: 'low',
+        format: {
+          type: 'json_schema',
+          schema: {
+            type: 'object',
+            properties: { found: { type: 'boolean' }, ref: { type: 'string' }, quote: { type: 'string' } },
+            required: ['found', 'ref', 'quote'],
+            additionalProperties: false,
+          },
+        },
+      },
+      messages: [{ role: 'user', content: prompt }],
+    })
+    .finalMessage();
+  if (response.stop_reason === 'refusal') throw new Error('The model declined this request.');
+  const text = response.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
+  const r = JSON.parse(text) as { found: boolean; ref: string; quote: string };
+  return r.found && r.quote ? { ref: r.ref, quote: r.quote } : null;
+}
+
 export function describeApiError(e: unknown): string {
   if (e instanceof Anthropic.AuthenticationError) return 'Invalid API key. Check it in Settings.';
   if (e instanceof Anthropic.PermissionDeniedError) return 'This API key does not have permission for this request.';

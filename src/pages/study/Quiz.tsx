@@ -4,7 +4,7 @@ import { db } from '../../db/db';
 import type { Question } from '../../db/types';
 import { Card, Field, ProgressBar } from '../../components/ui';
 import AnkiCardView from '../../components/AnkiCardView';
-import SourceQuote from '../../components/SourceQuote';
+import BookQuote from '../../components/BookQuote';
 import { dueQueue } from '../../lib/queue';
 import { QUALITY_BUTTONS, reviewSrs } from '../../lib/sm2';
 import { cx, nowIso, pct, shuffle, todayStr, uid } from '../../lib/utils';
@@ -282,7 +282,7 @@ function QuizSession({ data, questions, onExit }: { data: StudyData; questions: 
 
         {revealed && (
           <>
-            {q.source && <div className="mt-4"><SourceQuote source={q.source} /></div>}
+            <div className="mt-4"><BookQuote question={q} topic={topic} /></div>
             {q.explanation && (
               <div className="mt-4 rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800">
                 <div className="label">{isAnki ? 'My notes' : 'Explanation'}</div>

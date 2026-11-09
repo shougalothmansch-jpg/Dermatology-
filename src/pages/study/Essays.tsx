@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { RUBRIC_CRITERIA, TOPIC_STATUSES, type Essay, type EssayPrompt, type RubricKey } from '../../db/types';
@@ -224,19 +224,35 @@ function EssayWorkspace({ data, essayId, initialPhase, onExit }: { data: StudyDa
 
   const { elapsed, remaining } = useCountdown(essay?.timeLimitMin, startedAt.current - baseDuration.current * 1000, phase === 'writing');
 
-  // debounced autosave of content
+  // debounced autosave of content; pending edits are flushed when leaving or hiding the app
+  const pending = useRef<Partial<Essay> | null>(null);
+  const flushSave = useCallback(async () => {
+    window.clearTimeout(timer.current);
+    const patch = pending.current;
+    if (!patch) return;
+    pending.current = null;
+    setSaveState('saving');
+    await db.essays.update(essayId, patch);
+    setSaveState('saved');
+  }, [essayId]);
   const scheduleSave = (html: string, wc: number) => {
     setSaveState('dirty');
+    const patch: Partial<Essay> = { content: html, wordCount: wc, updatedAt: nowIso() };
+    if (phase === 'writing') patch.durationSec = Math.floor((Date.now() - startedAt.current) / 1000) + baseDuration.current;
+    pending.current = patch;
     window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(async () => {
-      setSaveState('saving');
-      const patch: Partial<Essay> = { content: html, wordCount: wc, updatedAt: nowIso() };
-      if (phase === 'writing') patch.durationSec = Math.floor((Date.now() - startedAt.current) / 1000) + baseDuration.current;
-      await db.essays.update(essayId, patch);
-      setSaveState('saved');
-    }, 800);
+    timer.current = window.setTimeout(() => void flushSave(), 500);
   };
-  useEffect(() => () => window.clearTimeout(timer.current), []);
+  useEffect(() => {
+    const onHide = () => document.visibilityState === 'hidden' && void flushSave();
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', flushSave);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', flushSave);
+      void flushSave();
+    };
+  }, [flushSave]);
 
   if (essay === undefined || content === null) return null;
   if (essay === null) return <Empty title="Essay not found" />;
@@ -245,6 +261,7 @@ function EssayWorkspace({ data, essayId, initialPhase, onExit }: { data: StudyDa
 
   const finishWriting = async () => {
     window.clearTimeout(timer.current);
+    pending.current = null; // this save supersedes any pending autosave
     await db.essays.update(essayId, { content, wordCount: words, durationSec: elapsed, updatedAt: nowIso() });
     setSaveState('saved');
     setPhase('assess');
@@ -252,6 +269,7 @@ function EssayWorkspace({ data, essayId, initialPhase, onExit }: { data: StudyDa
 
   const saveAssessment = async () => {
     window.clearTimeout(timer.current);
+    pending.current = null; // this save supersedes any pending autosave
     await db.essays.update(essayId, { content, wordCount: words, rubric, reflection, score: rubricScore(rubric), updatedAt: nowIso() });
     if (markEssayDone && topic) {
       const order = TOPIC_STATUSES.indexOf(topic.status);

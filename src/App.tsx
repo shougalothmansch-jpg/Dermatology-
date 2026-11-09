@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -10,6 +11,11 @@ import Settings from './pages/Settings';
 import Reader from './pages/study/Reader';
 
 export default function App() {
+  // finish saving any PDF text that wasn't done last time (used to find book quotes)
+  useEffect(() => {
+    const t = setTimeout(() => void import('./lib/bookSearch').then((m) => m.indexPendingPdfs()), 1500);
+    return () => clearTimeout(t);
+  }, []);
   return (
     <Routes>
       <Route element={<Layout />}>

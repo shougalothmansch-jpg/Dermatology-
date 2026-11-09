@@ -40,7 +40,7 @@ export default function TextbookManager({ data }: { data: StudyData }) {
               <button className="btn-secondary btn-sm" onClick={() => setEditing(b)}>Edit</button>
               <button className="btn-ghost btn-sm text-rose-600" onClick={() => setDeleting(b)}>Delete</button>
               </div>
-              <BookFiles book={b} />
+              <BookFiles book={b} data={data} />
             </li>
           ))}
         </ul>
@@ -55,9 +55,10 @@ export default function TextbookManager({ data }: { data: StudyData }) {
           if (!deleting) return;
           const id = deleting.id;
           const fileIds = await db.pdfs.where('textbookId').equals(id).primaryKeys();
-          await db.transaction('rw', [db.textbooks, db.topics, db.questions, db.pdfs, db.pdfChunks], async () => {
+          await db.transaction('rw', [db.textbooks, db.topics, db.questions, db.pdfs, db.pdfChunks, db.pdfPages], async () => {
             await db.textbooks.delete(id);
             await db.pdfChunks.where('fileId').anyOf(fileIds).delete();
+            await db.pdfPages.where('fileId').anyOf(fileIds).delete();
             await db.pdfs.bulkDelete(fileIds);
             await db.topics.toCollection().modify((t) => {
               delete t.chapters[id];

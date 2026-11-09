@@ -4,7 +4,7 @@ import { db } from '../../db/db';
 import type { Question } from '../../db/types';
 import { ConfirmDialog, Empty } from '../../components/ui';
 import AnkiCardView from '../../components/AnkiCardView';
-import SourceQuote from '../../components/SourceQuote';
+import BookQuote from '../../components/BookQuote';
 import AnkiImport from './AnkiImport';
 import { toast } from '../../components/Toast';
 import { useAiEnabled } from '../../lib/settings';
@@ -114,7 +114,7 @@ export default function QuestionBank({ data }: { data: StudyData }) {
                     ) : (
                       <p className="mb-2 whitespace-pre-wrap"><b>Answer:</b> {q.answer}</p>
                     )}
-                    {q.source && <div className="mb-2"><SourceQuote source={q.source} /></div>}
+                    <div className="mb-2"><BookQuote question={q} topic={data.topicById.get(q.topicId)} /></div>
                     {q.explanation && <p className="muted whitespace-pre-wrap">{q.explanation}</p>}
                     <div className="mt-3 flex gap-2">
                       <button className="btn-secondary btn-sm" onClick={() => setEditing(q)}>Edit</button>

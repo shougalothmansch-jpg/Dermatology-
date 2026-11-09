@@ -6,6 +6,8 @@ import type { BookFile, Textbook } from '../../db/types';
 import { ConfirmDialog, Field, Modal } from '../../components/ui';
 import { toast } from '../../components/Toast';
 import { nowIso, uid } from '../../lib/utils';
+import BookTopics from './BookTopics';
+import type { StudyData } from './useStudyData';
 
 export function formatBytes(n: number) {
   if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
@@ -61,15 +63,19 @@ export async function addPdfs(textbookId: string, files: File[], onStatus: (s: s
     }
   }
   onStatus('');
-  if (added) toast(`Added ${added} PDF${added === 1 ? '' : 's'}`);
+  if (added) {
+    toast(`Added ${added} PDF${added === 1 ? '' : 's'}`);
+    void import('../../lib/bookSearch').then((m) => m.indexPendingPdfs());
+  }
 }
 
-export default function BookFiles({ book }: { book: Textbook }) {
+export default function BookFiles({ book, data }: { book: Textbook; data: StudyData }) {
   const files = useLiveQuery(() => db.pdfs.where('textbookId').equals(book.id).sortBy('name'), [book.id]);
   const input = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState('');
   const [editing, setEditing] = useState<BookFile | null>(null);
   const [deleting, setDeleting] = useState<BookFile | null>(null);
+  const [topicsFor, setTopicsFor] = useState<BookFile | null>(null);
 
   return (
     <div className="mt-2 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/60">
@@ -104,8 +110,14 @@ export default function BookFiles({ book }: { book: Textbook }) {
                 {f.pageCount} pp · {formatBytes(f.size)}
                 {!f.hasText && ' · scanned'}
               </span>
+              <button className="btn-ghost btn-sm" onClick={() => setTopicsFor(f)}>Topics from chapters</button>
               <button className="btn-ghost btn-sm" onClick={() => setEditing(f)}>Edit</button>
               <button className="btn-ghost btn-sm text-rose-600" onClick={() => setDeleting(f)} aria-label="Remove PDF">✕</button>
+              {f.hasText && (f.indexedPages ?? 0) < f.pageCount && (
+                <div className="basis-full text-xs text-brand-700 dark:text-brand-300">
+                  Making searchable for book quotes… {Math.round(((f.indexedPages ?? 0) / f.pageCount) * 100)}% (keep the app open)
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -113,6 +125,7 @@ export default function BookFiles({ book }: { book: Textbook }) {
         !status && <p className="muted mt-1 text-xs">Add the whole book or individual chapters. They stay on this device and are not included in backups.</p>
       )}
       {editing && <FileEditor file={editing} onClose={() => setEditing(null)} />}
+      {topicsFor && <BookTopics data={data} file={topicsFor} onClose={() => setTopicsFor(null)} />}
       <ConfirmDialog
         open={!!deleting}
         title="Remove PDF?"
@@ -122,8 +135,12 @@ export default function BookFiles({ book }: { book: Textbook }) {
         onConfirm={async () => {
           if (deleting) {
             const id = deleting.id;
-            await db.transaction('rw', [db.pdfs, db.pdfChunks], async () => {
+            await db.transaction('rw', [db.pdfs, db.pdfChunks, db.pdfPages, db.topics], async () => {
               await db.pdfChunks.where('fileId').equals(id).delete();
+              await db.pdfPages.where('fileId').equals(id).delete();
+              await db.topics.toCollection().modify((t) => {
+                if (t.pages?.some((p) => p.fileId === id)) t.pages = t.pages.filter((p) => p.fileId !== id);
+              });
               await db.pdfs.delete(id);
             });
           }
