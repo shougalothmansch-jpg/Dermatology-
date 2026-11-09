@@ -132,19 +132,31 @@ export interface Essay {
   updatedAt: string;
 }
 
-/** A PDF of (part of) one of your textbooks, stored only on this device. */
+/**
+ * A PDF of (part of) one of your textbooks, stored only on this device.
+ * The bytes live separately in PdfChunk rows so that listing PDFs never
+ * touches the (possibly huge) file data — important for iPhone memory.
+ */
 export interface BookFile {
   id: string;
   textbookId: string;
   name: string; // e.g. "Ch. 8 Psoriasis" or the file name
-  blob: Blob;
   size: number;
+  chunkSize: number;
+  chunkCount: number;
   pageCount: number;
   /** printed page number of PDF page 1 minus 1 (so printed = pdfPage + offset); optional */
   pageOffset?: number;
   hasText: boolean; // false for scanned PDFs without a text layer
   lastPage?: number;
   addedAt: string;
+}
+
+/** One slice (a few MB) of a stored PDF. */
+export interface PdfChunk {
+  fileId: string;
+  index: number;
+  data: ArrayBuffer;
 }
 
 export interface AnkiNotetype {

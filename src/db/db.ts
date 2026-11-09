@@ -4,6 +4,7 @@ import type {
   Attempt,
   BookFile,
   ClubEntry,
+  PdfChunk,
   Essay,
   EssayPrompt,
   MediaFile,
@@ -36,7 +37,8 @@ export class DermPathDB extends Dexie {
   protocols!: Table<Protocol, string>;
   protocolTasks!: Table<ProtocolTask, string>;
   meta!: Table<MetaRow, string>;
-  bookFiles!: Table<BookFile, string>;
+  pdfs!: Table<BookFile, string>;
+  pdfChunks!: Table<PdfChunk, [string, number]>;
   ankiNotetypes!: Table<AnkiNotetype, string>;
   media!: Table<MediaFile, string>;
 
@@ -60,6 +62,13 @@ export class DermPathDB extends Dexie {
       bookFiles: 'id, textbookId',
       ankiNotetypes: 'id',
       media: 'name',
+    });
+    // v3: PDFs move to chunked storage. The old single-blob table is dropped without
+    // being read (reading huge blobs is what crashed Safari); PDFs must be re-added.
+    this.version(3).stores({
+      bookFiles: null,
+      pdfs: 'id, textbookId',
+      pdfChunks: '[fileId+index], fileId',
     });
     this.on('populate', (tx) => {
       const seed = buildSeed();
@@ -90,7 +99,7 @@ export const TABLE_NAMES = [
 ] as const;
 
 /** Large binary tables kept out of the JSON backup (PDFs and deck images). */
-export const BINARY_TABLES = ['bookFiles', 'media'] as const;
+export const BINARY_TABLES = ['pdfs', 'pdfChunks', 'media'] as const;
 export const ALL_TABLES = [...TABLE_NAMES, ...BINARY_TABLES] as const;
 export type TableName = (typeof TABLE_NAMES)[number];
 

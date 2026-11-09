@@ -18,7 +18,7 @@ const MODE_KEY = 'dermpath.readerMode';
 export default function Reader() {
   const { fileId = '' } = useParams();
   const [params, setParams] = useSearchParams();
-  const file = useLiveQuery(() => db.bookFiles.get(fileId).then((f) => f ?? null), [fileId]);
+  const file = useLiveQuery(() => db.pdfs.get(fileId).then((f) => f ?? null), [fileId]);
   const book = useLiveQuery(async () => (file ? await db.textbooks.get(file.textbookId) : undefined), [file?.textbookId]);
   const data = useStudyData();
   const [aiEnabled] = useAiEnabled();
@@ -58,7 +58,7 @@ export default function Reader() {
     let cancelled = false;
     let opened: PDFDocumentProxy | null = null;
     import('../../lib/pdf')
-      .then(({ openPdf }) => openPdf(file.blob))
+      .then(({ openStoredPdf }) => openStoredPdf(file))
       .then((d) => {
         opened = d;
         if (cancelled) void d.destroy();
@@ -77,7 +77,7 @@ export default function Reader() {
   useEffect(() => {
     setPageInput(String(page));
     if (file) {
-      const t = setTimeout(() => db.bookFiles.update(file.id, { lastPage: page }), 600);
+      const t = setTimeout(() => db.pdfs.update(file.id, { lastPage: page }), 600);
       return () => clearTimeout(t);
     }
   }, [page, file]);

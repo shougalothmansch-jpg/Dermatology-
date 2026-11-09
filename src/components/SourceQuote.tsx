@@ -7,7 +7,7 @@ import { pageLabel } from '../pages/study/BookFiles';
 /** Shows the textbook passage a question came from, with a link to that page in the reader. */
 export default function SourceQuote({ source, onRemove }: { source: QuestionSource; onRemove?: () => void }) {
   const info = useLiveQuery(async () => {
-    const file = await db.bookFiles.get(source.fileId);
+    const file = await db.pdfs.get(source.fileId);
     const book = file ? await db.textbooks.get(file.textbookId) : undefined;
     return { file, book };
   }, [source.fileId]);

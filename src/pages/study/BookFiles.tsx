@@ -13,6 +13,8 @@ export function formatBytes(n: number) {
   return `${(n / 1024 ** 3).toFixed(2)} GB`;
 }
 
+const PDF_CHUNK_SIZE = 4 * 1024 * 1024;
+
 /** Adds PDFs to a textbook. Files are stored only on this device. */
 export async function addPdfs(textbookId: string, files: File[], onStatus: (s: string) => void) {
   onStatus('Preparing…');
@@ -25,18 +27,27 @@ export async function addPdfs(textbookId: string, files: File[], onStatus: (s: s
       continue;
     }
     onStatus(`Checking ${f.name}…`);
+    const id = uid();
     try {
       const doc = await openPdf(f);
       const hasText = await detectText(doc);
       const pageCount = doc.numPages;
       await doc.destroy();
-      onStatus(`Saving ${f.name}…`);
-      await db.bookFiles.add({
-        id: uid(),
+      // Save in small pieces so neither saving nor reading ever holds the whole book in memory.
+      const chunkCount = Math.max(1, Math.ceil(f.size / PDF_CHUNK_SIZE));
+      for (let i = 0; i < chunkCount; i++) {
+        onStatus(`Saving ${f.name}… ${Math.round((i / chunkCount) * 100)}%`);
+        const data = await f.slice(i * PDF_CHUNK_SIZE, (i + 1) * PDF_CHUNK_SIZE).arrayBuffer();
+        await db.pdfChunks.put({ fileId: id, index: i, data });
+      }
+      // metadata last, so a half-saved PDF never shows up in the list
+      await db.pdfs.add({
+        id,
         textbookId,
         name: f.name.replace(/\.pdf$/i, ''),
-        blob: f,
         size: f.size,
+        chunkSize: PDF_CHUNK_SIZE,
+        chunkCount,
         pageCount,
         hasText,
         addedAt: nowIso(),
@@ -44,6 +55,7 @@ export async function addPdfs(textbookId: string, files: File[], onStatus: (s: s
       added++;
       if (!hasText) toast(`${f.name}: no selectable text (scanned PDF) — you can read it, but quoting and AI questions need text`);
     } catch (e) {
+      await db.pdfChunks.where('fileId').equals(id).delete().catch(() => undefined);
       const quota = e instanceof DOMException && e.name === 'QuotaExceededError';
       toast(quota ? 'Not enough storage on this device for that PDF' : `Could not open ${f.name}`);
     }
@@ -53,7 +65,7 @@ export async function addPdfs(textbookId: string, files: File[], onStatus: (s: s
 }
 
 export default function BookFiles({ book }: { book: Textbook }) {
-  const files = useLiveQuery(() => db.bookFiles.where('textbookId').equals(book.id).sortBy('name'), [book.id]);
+  const files = useLiveQuery(() => db.pdfs.where('textbookId').equals(book.id).sortBy('name'), [book.id]);
   const input = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState('');
   const [editing, setEditing] = useState<BookFile | null>(null);
@@ -108,7 +120,13 @@ export default function BookFiles({ book }: { book: Textbook }) {
         confirmLabel="Remove"
         onClose={() => setDeleting(null)}
         onConfirm={async () => {
-          if (deleting) await db.bookFiles.delete(deleting.id);
+          if (deleting) {
+            const id = deleting.id;
+            await db.transaction('rw', [db.pdfs, db.pdfChunks], async () => {
+              await db.pdfChunks.where('fileId').equals(id).delete();
+              await db.pdfs.delete(id);
+            });
+          }
           toast('PDF removed');
         }}
       />
@@ -121,7 +139,7 @@ function FileEditor({ file, onClose }: { file: BookFile; onClose: () => void }) 
   const [printedFirst, setPrintedFirst] = useState(file.pageOffset !== undefined ? String(file.pageOffset + 1) : '');
   const save = async () => {
     const n = parseInt(printedFirst, 10);
-    await db.bookFiles.update(file.id, { name: name.trim() || file.name, pageOffset: isNaN(n) ? undefined : n - 1 });
+    await db.pdfs.update(file.id, { name: name.trim() || file.name, pageOffset: isNaN(n) ? undefined : n - 1 });
     onClose();
   };
   return (

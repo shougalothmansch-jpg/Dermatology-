@@ -31,7 +31,7 @@ export default function GenerateQuestions({
   initialPages?: { fileId: string; from: number; to: number };
   onClose: () => void;
 }) {
-  const files = useLiveQuery(() => db.bookFiles.toArray(), []);
+  const files = useLiveQuery(() => db.pdfs.toArray(), []);
   const [topicId, setTopicId] = useState(defaultTopicId ?? '');
   const [fromBook, setFromBook] = useState(!!initialPages);
   const [fileId, setFileId] = useState(initialPages?.fileId ?? '');
@@ -62,9 +62,9 @@ export default function GenerateQuestions({
       if (fromBook) {
         if (!file) return setError('Choose a PDF.');
         if (rangeError) return setError(rangeError);
-        const { openPdf, rangeText } = await import('../../lib/pdf');
+        const { openStoredPdf, rangeText } = await import('../../lib/pdf');
         setBusy('Reading pages…');
-        const doc = await openPdf(file.blob);
+        const doc = await openStoredPdf(file);
         try {
           const r = await rangeText(doc, pFrom, pTo, (p) => setBusy(`Reading page ${p} of ${pTo}…`));
           sourceText = r.text;

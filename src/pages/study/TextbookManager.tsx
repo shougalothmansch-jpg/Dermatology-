@@ -54,9 +54,11 @@ export default function TextbookManager({ data }: { data: StudyData }) {
         onConfirm={async () => {
           if (!deleting) return;
           const id = deleting.id;
-          await db.transaction('rw', [db.textbooks, db.topics, db.questions, db.bookFiles], async () => {
+          const fileIds = await db.pdfs.where('textbookId').equals(id).primaryKeys();
+          await db.transaction('rw', [db.textbooks, db.topics, db.questions, db.pdfs, db.pdfChunks], async () => {
             await db.textbooks.delete(id);
-            await db.bookFiles.where('textbookId').equals(id).delete();
+            await db.pdfChunks.where('fileId').anyOf(fileIds).delete();
+            await db.pdfs.bulkDelete(fileIds);
             await db.topics.toCollection().modify((t) => {
               delete t.chapters[id];
             });

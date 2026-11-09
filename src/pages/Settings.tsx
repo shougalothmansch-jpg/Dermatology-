@@ -23,7 +23,7 @@ export default function Settings() {
   const storage = useLiveQuery(async () => {
     const est = await navigator.storage?.estimate?.();
     const persisted = await navigator.storage?.persisted?.();
-    const [pdfs, images] = await Promise.all([db.bookFiles.count(), db.media.count()]);
+    const [pdfs, images] = await Promise.all([db.pdfs.count(), db.media.count()]);
     return { usage: est?.usage ?? 0, quota: est?.quota ?? 0, persisted: !!persisted, pdfs, images };
   }, []);
   const counts = useLiveQuery(async () => {
