@@ -6,6 +6,7 @@ import { ConfirmDialog, Empty } from '../../components/ui';
 import AnkiCardView from '../../components/AnkiCardView';
 import BookQuote from '../../components/BookQuote';
 import AnkiImport from './AnkiImport';
+import BatchGenerate from './BatchGenerate';
 import { toast } from '../../components/Toast';
 import { useAiEnabled } from '../../lib/settings';
 import { formatDate, pct, todayStr } from '../../lib/utils';
@@ -24,6 +25,7 @@ export default function QuestionBank({ data }: { data: StudyData }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [batch, setBatch] = useState(false);
   const [shown, setShown] = useState(50);
   const [aiEnabled] = useAiEnabled();
   const today = todayStr();
@@ -34,7 +36,7 @@ export default function QuestionBank({ data }: { data: StudyData }) {
       (q) =>
         (!topicId || q.topicId === topicId) &&
         (!textbookId || q.textbookId === textbookId) &&
-        (!type || q.type === type || (type === 'sourced' && !!q.source)) &&
+        (!type || q.type === type || (type === 'sourced' && !!q.source) || (type === 'ai' && !!q.tags?.includes('ai-draft'))) &&
         (!s || q.stem.toLowerCase().includes(s) || q.explanation.toLowerCase().includes(s)),
     );
   }, [questions, topicId, textbookId, type, search]);
@@ -56,9 +58,11 @@ export default function QuestionBank({ data }: { data: StudyData }) {
           <option value="short">Short answer</option>
           <option value="anki">Anki cards</option>
           <option value="sourced">From my textbooks</option>
+          <option value="ai">AI-drafted</option>
         </select>
         <div className="ml-auto flex flex-wrap gap-2">
           <button className="btn-secondary" onClick={() => setImporting(true)}>⇪ Import Anki deck</button>
+          <button className="btn-secondary" onClick={() => setBatch(true)}>✦ Generate for all chapters</button>
           {aiEnabled && <button className="btn-secondary" onClick={() => setGenerating(true)}>✦ Generate questions</button>}
           <button className="btn-primary" onClick={() => setEditing('new')}>+ New question</button>
         </div>
@@ -134,6 +138,7 @@ export default function QuestionBank({ data }: { data: StudyData }) {
       )}
 
       {importing && <AnkiImport onClose={() => setImporting(false)} />}
+      {batch && <BatchGenerate data={data} onClose={() => setBatch(false)} />}
       {editing && <QuestionForm data={data} question={editing === 'new' ? null : editing} defaultTopicId={topicId || undefined} onClose={() => setEditing(null)} />}
       {generating && <GenerateQuestions data={data} defaultTopicId={topicId || undefined} onClose={() => setGenerating(false)} />}
       <ConfirmDialog
