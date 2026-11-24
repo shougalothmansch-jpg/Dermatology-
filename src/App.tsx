@@ -14,6 +14,8 @@ export default function App() {
   // finish saving any PDF text that wasn't done last time (used to find book quotes)
   useEffect(() => {
     const t = setTimeout(() => void import('./lib/bookSearch').then((m) => m.indexPendingPdfs()), 1500);
+    // keep devices in step (only does anything once sync is turned on in Settings)
+    void import('./lib/sync/engine').then((m) => m.startAutoSync());
     return () => clearTimeout(t);
   }, []);
   return (

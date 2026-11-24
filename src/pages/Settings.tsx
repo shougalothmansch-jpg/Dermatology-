@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getMeta, setMeta, TABLE_NAMES } from '../db/db';
 import { DEFAULT_NEW_PER_DAY } from '../lib/queue';
 import { formatBytes } from './study/BookFiles';
+import SyncCard from '../components/SyncCard';
 import { exportAll, importAll, resetAll, validateBackup, type BackupFile } from '../db/backup';
 import { Card, ConfirmDialog, Field, PageHeader } from '../components/ui';
 import { toast } from '../components/Toast';
@@ -76,6 +77,8 @@ export default function Settings() {
           ))}
         </div>
       </Card>
+
+      <SyncCard />
 
       <Card title="Study">
         <Field label="New cards per day" hint="How many never-studied questions and Anki cards join the “Due today” queue each day (like Anki's daily new-card limit).">

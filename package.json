@@ -22,6 +22,7 @@
     "sql.js": "^1.12.0"
   },
   "devDependencies": {
+    "@netlify/blobs": "^8.1.0",
     "@tailwindcss/typography": "^0.5.15",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.12",

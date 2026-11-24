@@ -6,6 +6,7 @@ import type {
   ClubEntry,
   PdfChunk,
   PdfPageText,
+  SyncHash,
   Essay,
   EssayPrompt,
   MediaFile,
@@ -41,6 +42,9 @@ export class DermPathDB extends Dexie {
   pdfs!: Table<BookFile, string>;
   pdfChunks!: Table<PdfChunk, [string, number]>;
   pdfPages!: Table<PdfPageText, [string, number]>;
+  syncHashes!: Table<SyncHash, string>;
+  /** device-only settings and keys (e.g. the sync key), never synced or backed up */
+  device!: Table<{ id: string; [k: string]: unknown }, string>;
   ankiNotetypes!: Table<AnkiNotetype, string>;
   media!: Table<MediaFile, string>;
 
@@ -74,6 +78,10 @@ export class DermPathDB extends Dexie {
     });
     this.version(4).stores({
       pdfPages: '[fileId+page], fileId',
+    });
+    this.version(5).stores({
+      syncHashes: 'id',
+      device: 'id',
     });
     this.on('populate', (tx) => {
       const seed = buildSeed();

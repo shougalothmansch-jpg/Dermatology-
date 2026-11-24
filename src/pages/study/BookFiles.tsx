@@ -5,7 +5,8 @@ import { db } from '../../db/db';
 import type { BookFile, Textbook } from '../../db/types';
 import { ConfirmDialog, Field, Modal } from '../../components/ui';
 import { toast } from '../../components/Toast';
-import { nowIso, uid } from '../../lib/utils';
+import { nowIso } from '../../lib/utils';
+import { fingerprintFile } from '../../lib/pdfFingerprint';
 import BookTopics from './BookTopics';
 import type { StudyData } from './useStudyData';
 
@@ -29,7 +30,13 @@ export async function addPdfs(textbookId: string, files: File[], onStatus: (s: s
       continue;
     }
     onStatus(`Checking ${f.name}…`);
-    const id = uid();
+    // same book → same id on every device, so synced topics and quotes link up
+    const id = await fingerprintFile(f);
+    const existing = await db.pdfs.get(id);
+    if (existing) {
+      toast(`${f.name} is already added${existing.textbookId === textbookId ? '' : ' under another textbook'}`);
+      continue;
+    }
     try {
       const doc = await openPdf(f);
       const hasText = await detectText(doc);
@@ -48,6 +55,7 @@ export async function addPdfs(textbookId: string, files: File[], onStatus: (s: s
         textbookId,
         name: f.name.replace(/\.pdf$/i, ''),
         size: f.size,
+        fingerprint: id,
         chunkSize: PDF_CHUNK_SIZE,
         chunkCount,
         pageCount,

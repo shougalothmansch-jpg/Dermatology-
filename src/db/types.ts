@@ -159,6 +159,8 @@ export interface BookFile {
   lastPage?: number;
   /** how many pages' text has been saved for searching (equals pageCount when done) */
   indexedPages?: number;
+  /** content fingerprint — identical on every device that adds the same PDF (used by sync) */
+  fingerprint?: string;
   addedAt: string;
 }
 
@@ -186,6 +188,15 @@ export interface AnkiNotetype {
 export interface MediaFile {
   name: string; // file name as referenced on cards
   blob: Blob;
+}
+
+// ---------- Sync (device-only, never synced themselves) ----------
+
+/** What a record looked like at its last sync, to spot local changes. id = `${table}:${primaryKey}` */
+export interface SyncHash {
+  id: string;
+  hash: string; // 'DEL' for a deleted record
+  at: number; // change time (ms) of that version
 }
 
 // ---------- Interest group ----------
